@@ -1,122 +1,73 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './stores/auth'
+import ProtectedRoute from './components/layout/ProtectedRoute'
+import AppLayout from './components/layout/AppLayout'
 
-function App() {
-  const [count, setCount] = useState(0)
+import Login from './pages/auth/Login'
+import Register from './pages/auth/Register'
+import Join from './pages/Join'
+
+import TeacherDashboard from './pages/guru/Dashboard'
+import QuestionGenerator from './pages/guru/QuestionGenerator'
+import QuestionDetail from './pages/guru/QuestionDetail'
+import TeacherAnalytics from './pages/guru/Analytics'
+import TeacherRecommendations from './pages/guru/Recommendations'
+import WorkspaceDetail from './pages/guru/WorkspaceDetail'
+
+import StudentHome from './pages/siswa/Home'
+import StudentSession from './pages/siswa/Session'
+import StudentProfile from './pages/siswa/Profile'
+import StudentRecs from './pages/siswa/Recommendations'
+
+export default function App() {
+  const init = useAuth((s) => s.init)
+  useEffect(() => {
+    // tema tersimpan diterapkan sebelum halaman pertama render
+    document.documentElement.dataset.theme = localStorage.getItem('vsc-theme') || 'light'
+    init()
+  }, [init])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <Routes>
+      <Route path="/" element={<Navigate to="/masuk" replace />} />
+      <Route path="/masuk" element={<Login />} />
+      <Route path="/daftar" element={<Register />} />
+      <Route path="/bergabung/:code" element={<Join />} />
 
-      <div className="ticks"></div>
+      <Route
+        path="/guru"
+        element={
+          <ProtectedRoute role="guru">
+            <AppLayout role="guru" />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<TeacherDashboard />} />
+        <Route path="soal/baru" element={<QuestionGenerator />} />
+        <Route path="soal/:id" element={<QuestionDetail />} />
+        <Route path="analitik" element={<TeacherAnalytics />} />
+        <Route path="rekomendasi" element={<TeacherRecommendations />} />
+        <Route path="kelas/:id" element={<WorkspaceDetail />} />
+      </Route>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <Route
+        path="/siswa"
+        element={
+          <ProtectedRoute role="siswa">
+            <AppLayout role="siswa" />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="beranda" replace />} />
+        <Route path="beranda" element={<StudentHome />} />
+        <Route path="sesi/:topic" element={<StudentSession />} />
+        <Route path="profil" element={<StudentProfile />} />
+        <Route path="rekomendasi" element={<StudentRecs />} />
+      </Route>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <Route path="*" element={<Navigate to="/masuk" replace />} />
+    </Routes>
   )
 }
-
-export default App

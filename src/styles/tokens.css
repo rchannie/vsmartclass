@@ -1,0 +1,39 @@
+/* VSmartClass design tokens — ikuti Developer Prompt, jangan hardcode hex di komponen */
+:root {
+  /* Warna utama */
+  --accent: #0d9488;
+  --accent-600: #0b7d72;
+  --warm: #f2994a;
+
+  /* Bloom C1–C6 (dipakai di seluruh app — JANGAN ubah) */
+  --c1: #5b8def; /* Mengingat     */
+  --c2: #18b1ad; /* Memahami      */
+  --c3: #3fae6a; /* Menerapkan    */
+  --c4: #e6b13c; /* Menganalisis  */
+  --c5: #e8803a; /* Mengevaluasi  */
+  --c6: #d9536a; /* Mencipta      */
+
+  /* Neutrals */
+  --bg: #f6f7f6;
+  --surface: #ffffff;
+  --text: #1c2b29;
+  --muted: #5f7470;
+  --border: #e2e8e6;
+
+  /* Radius */
+  --r-sm: 8px;
+  --r-md: 13px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0d1412;
+  --surface: #15201d;
+  --text: #e6efec;
+  --muted: #8aa39d;
+  --border: #25342f;
+  color-scheme: dark;
+}
