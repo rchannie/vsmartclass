@@ -4,6 +4,7 @@ import { useAuth } from './stores/auth'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 
+import Landing from './pages/Landing'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import Join from './pages/Join'
@@ -32,7 +33,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/masuk" replace />} />
+      <Route path="/" element={<Landing />} />
       <Route path="/masuk" element={<Login />} />
       <Route path="/daftar" element={<Register />} />
       <Route path="/bergabung/:code" element={<Join />} />
@@ -71,7 +72,7 @@ export default function App() {
         <Route path="proyek" element={<ProjectSubmit />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/masuk" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

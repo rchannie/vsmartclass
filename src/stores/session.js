@@ -17,7 +17,7 @@
 
 import { create } from 'zustand'
 import * as api from '../lib/api'
-import { codeOf, levelOf } from '../lib/bloom'
+import { adaptNext, levelOf } from '../lib/bloom'
 
 export const SESSION_LENGTH = 6
 const ADAPT_DELAY       = 1500 // delay normal bila soal belum siap
@@ -68,18 +68,12 @@ export const useSession = create((set, get) => ({
     // Pre-fetch soal N+1 di background segera setelah siswa menjawab,
     // sehingga soal sudah siap saat tombol "Soal berikutnya" diklik.
     if (s.answers.length + 1 < SESSION_LENGTH) {
-      const chosenLvl   = levelOf(option.bloom)
-      const targetLvl   = levelOf(s.target)
-      const hit         = chosenLvl >= targetLvl
-      const newStreak   = hit ? s.streak + 1 : 0
-      const prefetchLvl = newStreak >= 2 ? Math.min(6, targetLvl + 1) : hit ? targetLvl : chosenLvl
-      const prefetchTarget = codeOf(prefetchLvl)
-
+      const { nextTarget } = adaptNext(option.bloom, s.target, s.streak)
       api.nextQuestion({
         workspaceId: s.workspaceId,
         topic:       s.topic,
         subject:     s.subject,
-        target:      prefetchTarget,
+        target:      nextTarget,
         excludeIds:  s.items.map((i) => i.id),
       })
         .then((q) => set({ prefetchedQ: q }))
@@ -104,14 +98,10 @@ export const useSession = create((set, get) => ({
 
     // Pre-fetch soal berikutnya di background (sama seperti MCQ)
     if (s.answers.length + 1 < SESSION_LENGTH) {
-      const chosenLvl   = levelOf(result.bloom_level_achieved)
-      const targetLvl   = levelOf(s.target)
-      const hit         = chosenLvl >= targetLvl
-      const newStreak   = hit ? s.streak + 1 : 0
-      const prefetchLvl = newStreak >= 2 ? Math.min(6, targetLvl + 1) : hit ? targetLvl : chosenLvl
+      const { nextTarget } = adaptNext(result.bloom_level_achieved, s.target, s.streak)
       api.nextQuestion({
         workspaceId: s.workspaceId, topic: s.topic, subject: s.subject,
-        target: codeOf(prefetchLvl), excludeIds: s.items.map((i) => i.id),
+        target: nextTarget, excludeIds: s.items.map((i) => i.id),
       }).then((q) => set({ prefetchedQ: q })).catch(() => {})
     }
   },
@@ -124,13 +114,8 @@ export const useSession = create((set, get) => ({
     const bloomChosen = s.essayResult ? s.essayResult.bloom_level_achieved : s.picked?.bloom
     if (!bloomChosen) return
 
-    const question    = s.items[s.currentIdx]
-    const chosenLvl   = levelOf(bloomChosen)
-    const targetLvl   = levelOf(s.target)
-    const hit         = chosenLvl >= targetLvl
-    const newStreak   = hit ? s.streak + 1 : 0
-    const nextLvl     = newStreak >= 2 ? Math.min(6, targetLvl + 1) : hit ? targetLvl : chosenLvl
-    const nextTarget  = codeOf(nextLvl)
+    const question = s.items[s.currentIdx]
+    const { nextTarget, streak: nextStreak, direction } = adaptNext(bloomChosen, s.target, s.streak)
 
     const answer = {
       question_id:   question.id,
@@ -166,14 +151,10 @@ export const useSession = create((set, get) => ({
       answers,
       phase:       'generating',
       target:      nextTarget,
-      streak:      newStreak >= 2 ? 0 : newStreak,
+      streak:      nextStreak,
       prefetchedQ: null,
       essayResult: null,
-      adaptation: {
-        from:      codeOf(targetLvl),
-        to:        nextTarget,
-        direction: Math.sign(nextLvl - targetLvl),
-      },
+      adaptation:  { from: s.target, to: nextTarget, direction },
     })
 
     const [q] = await Promise.all([

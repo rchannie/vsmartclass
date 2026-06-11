@@ -23,12 +23,33 @@ const makeJoinCode = () => {
 // AUTH
 // ---------------------------------------------------------------------------
 
+// Ambil profil; bila barisnya tidak ada (akun lama / konfirmasi email),
+// rekonstruksi dari metadata auth. Mengembalikan null bila tidak bisa dipulihkan.
+async function fetchOrCreateProfile(user) {
+  const { data: profile } = await supabase
+    .from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (profile) return profile
+  const meta = user.user_metadata || {}
+  if (!meta.role) return null
+  const fresh = {
+    id: user.id,
+    full_name: meta.full_name || user.email.split('@')[0],
+    role: meta.role,
+  }
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(fresh, { onConflict: 'id', ignoreDuplicates: true })
+  return error ? null : fresh
+}
+
 export async function restoreSession() {
   if (isSupabaseConfigured) {
     const { data } = await supabase.auth.getSession()
     const user = data.session?.user
     if (!user) return { user: null, profile: null }
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    const profile = await fetchOrCreateProfile(user)
+    // Sesi tanpa profil yang bisa dipulihkan → perlakukan sebagai belum login
+    if (!profile) return { user: null, profile: null }
     return { user, profile }
   }
   const sess = demoSession.get()
@@ -46,7 +67,11 @@ export async function signIn(email, password) {
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw new Error('Email atau kata sandi salah.')
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single()
+    const profile = await fetchOrCreateProfile(data.user)
+    if (!profile) {
+      await supabase.auth.signOut()
+      throw new Error('Data profil akun ini tidak ditemukan. Silakan daftar ulang.')
+    }
     return { user: data.user, profile }
   }
   await delay(400)
@@ -62,10 +87,25 @@ export async function signIn(email, password) {
 
 export async function signUp({ fullName, email, password, role }) {
   if (isSupabaseConfigured) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    // Metadata ikut tersimpan di auth.users → trigger DB membuat baris profiles,
+    // dan profil bisa direkonstruksi saat login bila baris sempat hilang.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, role } },
+    })
     if (error) throw new Error(error.message)
+    // If email confirmation is required, session is null — user isn't authenticated yet.
+    // Proceeding would cause every authenticated RLS policy to fail with 403.
+    if (!data.session) {
+      throw new Error('Link konfirmasi terkirim ke email kamu. Klik link tersebut lalu masuk kembali.')
+    }
     const profile = { id: data.user.id, full_name: fullName, role }
-    const { error: pErr } = await supabase.from('profiles').insert(profile)
+    // Trigger on_auth_user_created biasanya sudah membuat barisnya — upsert ini
+    // hanya fallback bila trigger belum terpasang di database.
+    const { error: pErr } = await supabase
+      .from('profiles')
+      .upsert(profile, { onConflict: 'id', ignoreDuplicates: true })
     if (pErr) throw new Error(pErr.message)
     return { user: data.user, profile }
   }
@@ -88,9 +128,25 @@ export async function signOut() {
   else demoSession.clear()
 }
 
+export function onAuthChange(callback) {
+  if (!isSupabaseConfigured) return null
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(callback)
+  return subscription
+}
+
 // ---------------------------------------------------------------------------
 // WORKSPACE
 // ---------------------------------------------------------------------------
+
+// ID user dari sesi aktif klien — sumber kebenaran untuk mutasi.
+// State React bisa basi bila tab lain login akun berbeda (sesi Supabase
+// hanya satu per browser); JWT request selalu milik sesi terakhir.
+async function authUserId() {
+  const { data } = await supabase.auth.getSession()
+  const id = data.session?.user?.id
+  if (!id) throw new Error('Sesi berakhir. Silakan masuk kembali.')
+  return id
+}
 
 export async function getMyWorkspaces(userId) {
   if (isSupabaseConfigured) {
@@ -118,12 +174,15 @@ export async function getWorkspace(id) {
 export async function createWorkspace({ name, school, subject }, user) {
   const join_code = makeJoinCode()
   if (isSupabaseConfigured) {
+    const uid = await authUserId()
     const { data, error } = await supabase
       .from('workspaces')
-      .insert({ name, school, subject, join_code, created_by: user.id })
+      .insert({ name, school, subject, join_code, created_by: uid })
       .select().single()
     if (error) throw error
-    await supabase.from('workspace_members').insert({ workspace_id: data.id, user_id: user.id, role: 'guru' })
+    const { error: mErr } = await supabase
+      .from('workspace_members').insert({ workspace_id: data.id, user_id: uid, role: 'guru' })
+    if (mErr) throw mErr
     return data
   }
   const db = loadDB()
@@ -144,15 +203,15 @@ export async function findWorkspaceByCode(code) {
 }
 
 export async function joinWorkspace(code, user, role = 'siswa') {
+  if (isSupabaseConfigured) {
+    // RPC security definer — user_id & role ditentukan server-side dari
+    // auth.uid() + profiles.role; kebal sesi basi dan self-elevation.
+    const { data, error } = await supabase.rpc('join_workspace_by_code', { p_code: code })
+    if (error) throw new Error(error.message || 'Gagal bergabung ke kelas.')
+    return data
+  }
   const w = await findWorkspaceByCode(code)
   if (!w) throw new Error('Kode tidak ditemukan. Periksa kembali kode dari gurumu.')
-  if (isSupabaseConfigured) {
-    const { error } = await supabase
-      .from('workspace_members')
-      .upsert({ workspace_id: w.id, user_id: user.id, role })
-    if (error) throw error
-    return w
-  }
   const db = loadDB()
   if (!db.members.some((m) => m.workspace_id === w.id && m.user_id === user.id)) {
     db.members.push({ workspace_id: w.id, user_id: user.id, role, joined_at: new Date().toISOString() })
@@ -284,7 +343,7 @@ export async function generateQuestions(params) {
 }
 
 // ---------------------------------------------------------------------------
-// SESI ADAPTIF
+// SESI ADAPTIF   
 // ---------------------------------------------------------------------------
 
 export async function createSession({ workspaceId, userId, topic, subject }) {

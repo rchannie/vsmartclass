@@ -1,5 +1,9 @@
--- VSmartClass — schema + Row Level Security
--- Jalankan via: supabase db push  (atau SQL editor di dashboard)
+-- ============================================================================
+-- VSmartClass — SETUP LENGKAP & IDEMPOTEN (aman dijalankan berulang kali)
+-- Salin-tempel SELURUH file ini ke Supabase SQL Editor, lalu Run sekali.
+-- Gabungan migrations 0001–0003: tabel, realtime, RLS, trigger profil,
+-- dan backfill profil untuk akun auth lama yang belum punya baris profiles.
+-- ============================================================================
 
 -- ============================================================ TABEL
 
@@ -96,13 +100,24 @@ create table if not exists public.project_submissions (
   submitted_at  timestamptz default now()
 );
 
--- Realtime untuk heatmap live di dashboard guru
-alter publication supabase_realtime add table public.bloom_profiles;
-alter publication supabase_realtime add table public.sessions;
+-- ============================================================ REALTIME
+-- (dibungkus agar tidak error bila tabel sudah terdaftar di publication)
+
+do $$
+begin
+  alter publication supabase_realtime add table public.bloom_profiles;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.sessions;
+exception when duplicate_object then null;
+end $$;
 
 -- ============================================================ HELPERS
-
 -- security definer agar kebijakan tidak rekursif
+
 create or replace function public.is_member(ws uuid)
 returns boolean language sql security definer stable as $$
   select exists (
@@ -119,7 +134,10 @@ returns boolean language sql security definer stable as $$
   );
 $$;
 
--- ============================================================ RLS
+grant execute on function public.is_member(uuid) to authenticated;
+grant execute on function public.is_guru_of(uuid) to authenticated;
+
+-- ============================================================ ENABLE RLS
 
 alter table public.profiles enable row level security;
 alter table public.workspaces enable row level security;
@@ -130,7 +148,14 @@ alter table public.session_answers enable row level security;
 alter table public.bloom_profiles enable row level security;
 alter table public.project_submissions enable row level security;
 
--- profiles: nama boleh dibaca pengguna terautentikasi (untuk roster kelas)
+-- ============================================================ POLICIES
+-- pola drop-then-create agar idempoten
+
+-- profiles
+drop policy if exists "profiles read" on public.profiles;
+drop policy if exists "profiles insert own" on public.profiles;
+drop policy if exists "profiles update own" on public.profiles;
+
 create policy "profiles read" on public.profiles
   for select to authenticated using (true);
 create policy "profiles insert own" on public.profiles
@@ -138,7 +163,12 @@ create policy "profiles insert own" on public.profiles
 create policy "profiles update own" on public.profiles
   for update to authenticated using (id = auth.uid());
 
--- workspaces: baca hanya anggota (atau lookup join_code); insert hanya guru
+-- workspaces
+drop policy if exists "workspaces read member" on public.workspaces;
+drop policy if exists "workspaces insert guru" on public.workspaces;
+drop policy if exists "workspaces update owner" on public.workspaces;
+drop policy if exists "workspaces delete owner" on public.workspaces;
+
 create policy "workspaces read member" on public.workspaces
   for select to authenticated using (public.is_member(id) or true); -- lookup join code diizinkan
 create policy "workspaces insert guru" on public.workspaces
@@ -152,6 +182,11 @@ create policy "workspaces delete owner" on public.workspaces
   for delete to authenticated using (created_by = auth.uid());
 
 -- workspace_members
+drop policy if exists "members read" on public.workspace_members;
+drop policy if exists "members join self" on public.workspace_members;
+drop policy if exists "members update self" on public.workspace_members;
+drop policy if exists "members remove" on public.workspace_members;
+
 create policy "members read" on public.workspace_members
   for select to authenticated using (public.is_member(workspace_id));
 create policy "members join self" on public.workspace_members
@@ -165,7 +200,12 @@ create policy "members remove" on public.workspace_members
     user_id = auth.uid() or public.is_guru_of(workspace_id)
   );
 
--- questions: guru CRUD miliknya; siswa baca published di workspace-nya
+-- questions
+drop policy if exists "questions read" on public.questions;
+drop policy if exists "questions insert guru" on public.questions;
+drop policy if exists "questions update own" on public.questions;
+drop policy if exists "questions delete own" on public.questions;
+
 create policy "questions read" on public.questions
   for select to authenticated using (
     created_by = auth.uid() or (published and public.is_member(workspace_id))
@@ -179,7 +219,10 @@ create policy "questions update own" on public.questions
 create policy "questions delete own" on public.questions
   for delete to authenticated using (created_by = auth.uid());
 
--- sessions & answers: hanya milik sendiri
+-- sessions & answers
+drop policy if exists "sessions own" on public.sessions;
+drop policy if exists "answers own" on public.session_answers;
+
 create policy "sessions own" on public.sessions
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "answers own" on public.session_answers
@@ -187,17 +230,61 @@ create policy "answers own" on public.session_answers
   using (exists (select 1 from public.sessions s where s.id = session_id and s.user_id = auth.uid()))
   with check (exists (select 1 from public.sessions s where s.id = session_id and s.user_id = auth.uid()));
 
--- bloom_profiles: siswa baca miliknya; guru baca semua anggota workspace-nya
+-- bloom_profiles (penulisan via Edge Function service role)
+drop policy if exists "bloom read" on public.bloom_profiles;
+
 create policy "bloom read" on public.bloom_profiles
   for select to authenticated using (
     user_id = auth.uid() or public.is_guru_of(workspace_id)
   );
--- penulisan dilakukan Edge Function (service role) → tidak perlu policy insert/update
 
--- project_submissions: siswa insert/baca miliknya; guru baca workspace-nya
+-- project_submissions
+drop policy if exists "projects insert own" on public.project_submissions;
+drop policy if exists "projects read" on public.project_submissions;
+
 create policy "projects insert own" on public.project_submissions
   for insert to authenticated with check (user_id = auth.uid() and public.is_member(workspace_id));
 create policy "projects read" on public.project_submissions
   for select to authenticated using (
     user_id = auth.uid() or public.is_guru_of(workspace_id)
   );
+
+-- ============================================================ TRIGGER PROFIL
+-- Profil dibuat otomatis saat akun auth baru terdaftar (dari metadata signUp)
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data->>'role', 'siswa')
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ============================================================ BACKFILL
+-- Buat profil untuk akun auth lama yang belum punya baris profiles.
+-- Role default 'siswa' bila tidak ada metadata — ubah manual bila perlu guru:
+--   update public.profiles set role = 'guru' where id = '<uuid>';
+
+insert into public.profiles (id, full_name, role)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1)),
+  coalesce(u.raw_user_meta_data->>'role', 'siswa')
+from auth.users u
+left join public.profiles p on p.id = u.id
+where p.id is null;

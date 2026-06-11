@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Clock, Rocket, Play, ExternalLink, HelpCircle, Loader2 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
@@ -22,11 +23,6 @@ export default function StudentRecs() {
   const [varkStyle, setVarkStyle] = useState(null)
   const [varkLoaded, setVarkLoaded] = useState(false)
 
-  // AI recs state
-  const [aiRecs, setAiRecs] = useState(null)
-  const [weakest, setWeakest] = useState(null)
-  const [recsLoading, setRecsLoading] = useState(false)
-
   // Load VARK style on mount
   useEffect(() => {
     if (!user?.id) return
@@ -36,17 +32,14 @@ export default function StudentRecs() {
     })
   }, [user?.id])
 
-  // Load recs when profile + vark ready
-  useEffect(() => {
-    if (!p || !varkLoaded || !active?.id) return
-    setRecsLoading(true)
-    api.getStudentRecs(user.id, active.id, topic, varkStyle)
-      .then((result) => {
-        setAiRecs(result.studentRecs)
-        setWeakest(result.weakest)
-      })
-      .finally(() => setRecsLoading(false))
-  }, [p?.updated_at, topic, varkStyle, varkLoaded, active?.id])
+  // Rekomendasi AI — di-fetch ulang saat profil/topik/gaya belajar berubah
+  const { data: recsData, isFetching: recsLoading } = useQuery({
+    queryKey: ['student-recs', user?.id, active?.id, topic, varkStyle, p?.updated_at],
+    queryFn: () => api.getStudentRecs(user.id, active.id, topic, varkStyle),
+    enabled: Boolean(p && varkLoaded && active?.id),
+  })
+  const aiRecs = recsData?.studentRecs ?? null
+  const weakest = recsData?.weakest ?? null
 
   const handleVarkComplete = async (style) => {
     await api.saveVarkStyle(user.id, style)

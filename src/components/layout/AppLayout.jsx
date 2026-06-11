@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Sparkles, BarChart3, Lightbulb,
-  Home, ClipboardList, UserRound, FolderOpen, LogOut, Moon, Sun,
+  Home, ClipboardList, UserRound, FolderOpen, LogOut, Moon, Sun, HelpCircle,
 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import Logo from '../ui/Logo'
 import Avatar from '../ui/Avatar'
+import OnboardingWizard from '../onboarding/OnboardingWizard'
+import { onboardKey } from '../../lib/onboard'
 
 const NAV = {
   guru: [
@@ -36,6 +38,13 @@ export default function AppLayout({ role }) {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
+
+  // Wizard pengenalan — otomatis untuk akun yang belum pernah melihatnya.
+  // 'auto' membaca flag localStorage saat render; 'open'/'closed' = aksi pengguna.
+  const [wizard, setWizard] = useState('auto')
+  const showOnboard =
+    wizard === 'open' ||
+    (wizard === 'auto' && Boolean(profile?.id) && !localStorage.getItem(onboardKey(profile.id)))
 
   const handleSignOut = async () => {
     await signOut()
@@ -74,6 +83,14 @@ export default function AppLayout({ role }) {
             </div>
             <button
               type="button"
+              onClick={() => setWizard('open')}
+              className="rounded-pill p-1.5 text-muted hover:bg-bg hover:text-ink"
+              title="Lihat panduan"
+            >
+              <HelpCircle size={15} />
+            </button>
+            <button
+              type="button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="rounded-pill p-1.5 text-muted hover:bg-bg hover:text-ink"
               title="Ganti tema"
@@ -98,6 +115,14 @@ export default function AppLayout({ role }) {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => setWizard('open')}
+            className="rounded-pill p-2 text-muted"
+            title="Lihat panduan"
+          >
+            <HelpCircle size={16} />
+          </button>
+          <button
+            type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="rounded-pill p-2 text-muted"
             title="Ganti tema"
@@ -116,6 +141,11 @@ export default function AppLayout({ role }) {
           <Outlet />
         </div>
       </main>
+
+      {/* Wizard pengenalan pengguna baru — mount saat terbuka agar langkah selalu mulai dari awal */}
+      {showOnboard && (
+        <OnboardingWizard role={role} userId={profile?.id} onClose={() => setWizard('closed')} />
+      )}
 
       {/* Bottom tab — mobile (breakpoint 768px, UX rule #7) */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface md:hidden">

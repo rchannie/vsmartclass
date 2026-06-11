@@ -57,6 +57,23 @@ export const BLOOM = {
 export const levelOf = (code) => Number(String(code).replace(/\D/g, '')) || 1
 export const codeOf = (level) => `C${Math.min(6, Math.max(1, Math.round(level)))}`
 
+// Aturan adaptasi sesi (Modul 3) — consecutive-success streak:
+//   chosen ≥ target, streak < 2 → target tetap, streak bertambah
+//   chosen ≥ target, streak ≥ 2 → target naik satu level (maks C6), streak reset
+//   chosen <  target            → target turun ke level pilihan siswa, streak reset
+export function adaptNext(chosenCode, targetCode, streak) {
+  const chosen = levelOf(chosenCode)
+  const target = levelOf(targetCode)
+  const hit = chosen >= target
+  const newStreak = hit ? streak + 1 : 0
+  const nextLevel = newStreak >= 2 ? Math.min(6, target + 1) : hit ? target : chosen
+  return {
+    nextTarget: codeOf(nextLevel),
+    streak: newStreak >= 2 ? 0 : newStreak,
+    direction: Math.sign(nextLevel - target),
+  }
+}
+
 // Latar lembut warna bloom (proporsional terhadap surface — aman utk dark mode)
 export const softBg = (code, pct = 12) =>
   `color-mix(in srgb, ${BLOOM[code].color} ${pct}%, var(--surface))`
