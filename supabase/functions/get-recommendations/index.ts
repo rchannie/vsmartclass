@@ -1,7 +1,8 @@
 // Edge Function: get-recommendations
-// Input : { userId, workspaceId, topic }
-// Output: { studentRecs: [{bloom, title, why, type, minutes}], strategy, weakest }
-// Membaca bloom_profiles → level terlemah → 3 rekomendasi via Gemini
+// Input : { userId, workspaceId, topic, varkStyle? }
+//   varkStyle: 'V' | 'A' | 'R' | 'K' (gaya belajar VARK siswa, opsional)
+// Output: { studentRecs: [{bloom, title, why, type, minutes, resourceLabel, resourceUrl, challengeQuestion}], strategy, weakest }
+// Membaca bloom_profiles → level terlemah → 3 rekomendasi via Gemini 2.5 Flash
 // (fallback template bila Gemini gagal).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -24,7 +25,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { userId, workspaceId, topic } = await req.json()
+    const { userId, workspaceId, topic, varkStyle } = await req.json()
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -40,16 +41,40 @@ Deno.serve(async (req) => {
     const relevant = vals.slice(0, Math.min(6, current + 1))
     const weakest = `C${relevant.indexOf(Math.min(...relevant)) + 1}`
 
+    const VARK_LABELS: Record<string, string> = {
+      V: 'Visual — lebih mudah belajar lewat diagram, grafik, dan visualisasi',
+      A: 'Auditori — lebih mudah belajar lewat diskusi dan penjelasan lisan',
+      R: 'Baca-Tulis — lebih mudah belajar lewat teks dan membuat catatan',
+      K: 'Kinestetik — lebih mudah belajar lewat praktik dan mencoba langsung',
+    }
+    const varkLine = varkStyle && VARK_LABELS[varkStyle]
+      ? `Gaya belajar siswa (VARK): ${VARK_LABELS[varkStyle]}.`
+      : ''
+
+    const TRUSTED_SOURCES: Record<string, { label: string; url: string }> = {
+      C1: { label: 'Buat kartu belajar di Quizlet', url: 'https://quizlet.com' },
+      C2: { label: 'Penjelasan video di Khan Academy', url: 'https://id.khanacademy.org' },
+      C3: { label: 'Latihan soal di Khan Academy', url: 'https://id.khanacademy.org' },
+      C4: { label: 'Sumber belajar Kemendikbud', url: 'https://belajar.kemdikbud.go.id' },
+      C5: { label: 'Referensi lanjutan Kemendikbud', url: 'https://belajar.kemdikbud.go.id' },
+      C6: { label: 'Sumber inspirasi proyek Kemendikbud', url: 'https://belajar.kemdikbud.go.id' },
+    }
+
     let studentRecs = FALLBACK
     try {
       const prompt = `
 Kamu konselor belajar berbasis Taksonomi Bloom. Profil siswa (mastery 0-100):
 C1=${vals[0]} C2=${vals[1]} C3=${vals[2]} C4=${vals[3]} C5=${vals[4]} C6=${vals[5]}.
 Level saat ini: C${current}. Topik: "${topic}". Level terlemah: ${weakest}.
+${varkLine}
 
 Buat TEPAT 3 rekomendasi aktivitas belajar berbahasa Indonesia:
 1 penguatan level saat ini + 2 untuk naik level.
-Output JSON murni: {"recs":[{"bloom":"C3","title":"...","why":"alasan mengapa cocok untuk siswa ini","type":"Visual|Latihan|Penguatan","minutes":15}]}
+${varkLine ? 'Sesuaikan judul dan metode aktivitas dengan gaya belajar siswa di atas.' : ''}
+Untuk setiap rekomendasi, sertakan juga:
+- challengeQuestion: 1 pertanyaan terbuka yang mendorong siswa naik ke level berikutnya.
+Output JSON murni (tanpa teks lain):
+{"recs":[{"bloom":"C3","title":"...","why":"alasan mengapa cocok untuk siswa ini","type":"Visual|Latihan|Penguatan","minutes":15,"challengeQuestion":"..."}]}
 `.trim()
 
       for (const model of MODELS) {
@@ -72,7 +97,13 @@ Output JSON murni: {"recs":[{"bloom":"C3","title":"...","why":"alasan mengapa co
         const raw = (g.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}')
           .trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
         const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed.recs) && parsed.recs.length === 3) studentRecs = parsed.recs
+        if (Array.isArray(parsed.recs) && parsed.recs.length === 3) {
+          // Inject trusted resourceUrl/resourceLabel based on bloom level
+          studentRecs = parsed.recs.map((r: Record<string, unknown>) => {
+            const src = TRUSTED_SOURCES[(r.bloom as string) ?? 'C2'] || TRUSTED_SOURCES['C2']
+            return { ...r, resourceLabel: src.label, resourceUrl: src.url }
+          })
+        }
         break
       }
     } catch (_) { /* pakai fallback */ }

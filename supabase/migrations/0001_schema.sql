@@ -8,6 +8,7 @@ create table if not exists public.profiles (
   full_name   text,
   role        text check (role in ('guru', 'siswa')) not null default 'siswa',
   avatar_url  text,
+  vark_style  text check (vark_style in ('V', 'A', 'R', 'K')),
   created_at  timestamptz default now()
 );
 
@@ -84,6 +85,17 @@ create table if not exists public.bloom_profiles (
   unique (user_id, workspace_id, topic)
 );
 
+create table if not exists public.project_submissions (
+  id            uuid primary key default gen_random_uuid(),
+  workspace_id  uuid references public.workspaces(id) on delete cascade,
+  user_id       uuid references public.profiles(id) on delete cascade,
+  topic         text not null,
+  file_name     text not null,
+  file_size     bigint,
+  description   text,
+  submitted_at  timestamptz default now()
+);
+
 -- Realtime untuk heatmap live di dashboard guru
 alter publication supabase_realtime add table public.bloom_profiles;
 alter publication supabase_realtime add table public.sessions;
@@ -116,6 +128,7 @@ alter table public.questions enable row level security;
 alter table public.sessions enable row level security;
 alter table public.session_answers enable row level security;
 alter table public.bloom_profiles enable row level security;
+alter table public.project_submissions enable row level security;
 
 -- profiles: nama boleh dibaca pengguna terautentikasi (untuk roster kelas)
 create policy "profiles read" on public.profiles
@@ -178,3 +191,11 @@ create policy "bloom read" on public.bloom_profiles
     user_id = auth.uid() or public.is_guru_of(workspace_id)
   );
 -- penulisan dilakukan Edge Function (service role) → tidak perlu policy insert/update
+
+-- project_submissions: siswa insert/baca miliknya; guru baca workspace-nya
+create policy "projects insert own" on public.project_submissions
+  for insert to authenticated with check (user_id = auth.uid() and public.is_member(workspace_id));
+create policy "projects read" on public.project_submissions
+  for select to authenticated using (
+    user_id = auth.uid() or public.is_guru_of(workspace_id)
+  );

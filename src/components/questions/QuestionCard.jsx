@@ -1,4 +1,4 @@
-import { BLOOM, softBg } from '../../lib/bloom'
+import { BLOOM, softBg, difficultyTierOf, DIFFICULTY_TIERS } from '../../lib/bloom'
 import BloomBadge from '../bloom/BloomBadge'
 
 // Kartu soal (tampilan guru): PG dengan opsi berlabel Bloom, atau Esai dengan rubrik.
@@ -22,6 +22,15 @@ export default function QuestionCard({ question, index, action }) {
               {(question.bloom_target || []).map((c) => (
                 <BloomBadge key={c} code={c} size="sm" soft />
               ))}
+              {(() => {
+                const tier = difficultyTierOf(question.bloom_target || [])
+                const t = DIFFICULTY_TIERS[tier]
+                return (
+                  <span className={`rounded-pill px-2 py-0.5 text-[10px] font-bold ${t.className}`}>
+                    {t.label}
+                  </span>
+                )
+              })()}
             </div>
           </div>
         </div>

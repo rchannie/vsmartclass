@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Rocket, Play } from 'lucide-react'
+import { Clock, Rocket, Play, ExternalLink, HelpCircle, Loader2 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import { BLOOM, softBg } from '../../lib/bloom'
-import { buildStudentRecs } from '../../lib/recs'
+import * as api from '../../lib/api'
 import BloomBadge from '../../components/bloom/BloomBadge'
+import VarkSurvey, { VARK_META } from '../../components/bloom/VarkSurvey'
 
 export default function StudentRecs() {
   const { user } = useAuth()
@@ -16,7 +17,41 @@ export default function StudentRecs() {
   const [selectedTopic, setSelectedTopic] = useState('')
   const topic = selectedTopic || myProfiles[0]?.topic || ''
   const p = myProfiles.find((x) => x.topic === topic)
-  const { weakest, recs } = buildStudentRecs(p)
+
+  // VARK state
+  const [varkStyle, setVarkStyle] = useState(null)
+  const [varkLoaded, setVarkLoaded] = useState(false)
+
+  // AI recs state
+  const [aiRecs, setAiRecs] = useState(null)
+  const [weakest, setWeakest] = useState(null)
+  const [recsLoading, setRecsLoading] = useState(false)
+
+  // Load VARK style on mount
+  useEffect(() => {
+    if (!user?.id) return
+    api.getVarkStyle(user.id).then((style) => {
+      setVarkStyle(style)
+      setVarkLoaded(true)
+    })
+  }, [user?.id])
+
+  // Load recs when profile + vark ready
+  useEffect(() => {
+    if (!p || !varkLoaded || !active?.id) return
+    setRecsLoading(true)
+    api.getStudentRecs(user.id, active.id, topic, varkStyle)
+      .then((result) => {
+        setAiRecs(result.studentRecs)
+        setWeakest(result.weakest)
+      })
+      .finally(() => setRecsLoading(false))
+  }, [p?.updated_at, topic, varkStyle, varkLoaded, active?.id])
+
+  const handleVarkComplete = async (style) => {
+    await api.saveVarkStyle(user.id, style)
+    setVarkStyle(style)
+  }
 
   if (!p) {
     return (
@@ -28,6 +63,9 @@ export default function StudentRecs() {
     )
   }
 
+  const displayWeakest = weakest || 'C1'
+  const varkMeta = varkStyle ? VARK_META[varkStyle] : null
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -35,34 +73,46 @@ export default function StudentRecs() {
           <h1 className="text-2xl">Rekomendasi untukmu</h1>
           <p className="mt-1 text-sm text-muted">
             Disusun dari profil Bloom-mu — area yang paling butuh perhatian:{' '}
-            <span className="font-mono font-extrabold" style={{ color: BLOOM[weakest].color }}>
-              {weakest} · {BLOOM[weakest].name}
+            <span className="font-mono font-extrabold" style={{ color: BLOOM[displayWeakest].color }}>
+              {displayWeakest} · {BLOOM[displayWeakest].name}
             </span>
           </p>
         </div>
-        {myProfiles.length > 1 && (
-          <select className="input !w-auto text-xs font-bold" value={topic} onChange={(e) => setSelectedTopic(e.target.value)}>
-            {myProfiles.map((x) => <option key={x.topic} value={x.topic}>{x.topic}</option>)}
-          </select>
-        )}
+        <div className="flex items-center gap-2.5">
+          {varkMeta && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-pill border border-line px-2.5 py-1 text-xs font-bold"
+              style={{ color: varkMeta.color }}
+            >
+              <varkMeta.icon size={12} /> {varkMeta.label}
+            </span>
+          )}
+          {myProfiles.length > 1 && (
+            <select className="input !w-auto text-xs font-bold" value={topic} onChange={(e) => setSelectedTopic(e.target.value)}>
+              {myProfiles.map((x) => <option key={x.topic} value={x.topic}>{x.topic}</option>)}
+            </select>
+          )}
+        </div>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {recs.map((rec, i) => (
-          <article key={i} className="card flex flex-col p-5" style={{ borderTop: `4px solid ${BLOOM[rec.bloom].color}` }}>
-            <div className="flex items-center justify-between">
-              <BloomBadge code={rec.bloom} size="md" />
-              <span className="text-[10px] font-bold uppercase tracking-wide text-muted">{rec.kind}</span>
-            </div>
-            <h3 className="mt-3 text-[15px] leading-snug">{rec.title}</h3>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{rec.why}</p>
-            <div className="mt-4 flex items-center justify-between text-[11px] font-bold">
-              <span className="rounded-pill border border-line bg-bg px-2.5 py-1 text-muted">{rec.type}</span>
-              <span className="inline-flex items-center gap-1 text-muted"><Clock size={12} /> ±{rec.minutes} menit</span>
-            </div>
-          </article>
-        ))}
-      </div>
+      {/* VARK survey — tampil jika belum ada gaya belajar tersimpan */}
+      {varkLoaded && !varkStyle && (
+        <VarkSurvey onComplete={handleVarkComplete} />
+      )}
+
+      {/* Rec cards */}
+      {recsLoading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted">
+          <Loader2 size={18} className="animate-spin" />
+          AI sedang menyusun rekomendasimu…
+        </div>
+      ) : aiRecs && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {aiRecs.map((rec, i) => (
+            <RecCard key={i} rec={rec} />
+          ))}
+        </div>
+      )}
 
       {/* CTA C6 — Tantangan Mencipta */}
       <div
@@ -76,18 +126,58 @@ export default function StudentRecs() {
           <div>
             <h3 className="text-base">Tantangan Mencipta</h3>
             <p className="text-sm text-muted">
-              Rancang satu soal {topic} versimu sendiri dan tantang teman sekelasmu menjawabnya.
+              Kumpulkan laporan proyek mini tentang {topic} dan buktikan penguasaan tertinggimu.
             </p>
           </div>
         </div>
         <Link
-          to={`/siswa/sesi/${encodeURIComponent(topic)}`}
+          to={`/siswa/proyek`}
           className="btn rounded-pill px-5 py-2.5 text-white"
           style={{ background: BLOOM.C6.color }}
         >
-          Terima tantangan
+          Kumpulkan proyek
         </Link>
       </div>
     </div>
+  )
+}
+
+function RecCard({ rec }) {
+  return (
+    <article className="card flex flex-col p-5" style={{ borderTop: `4px solid ${BLOOM[rec.bloom]?.color || 'var(--accent)'}` }}>
+      <div className="flex items-center justify-between">
+        <BloomBadge code={rec.bloom} size="md" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-muted">{rec.kind}</span>
+      </div>
+      <h3 className="mt-3 text-[15px] leading-snug">{rec.title}</h3>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{rec.why}</p>
+
+      {/* Challenge question */}
+      {rec.challengeQuestion && (
+        <div className="mt-3 rounded-md border border-line bg-bg p-3">
+          <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-muted">
+            <HelpCircle size={10} /> Tantangan
+          </p>
+          <p className="text-xs leading-relaxed">{rec.challengeQuestion}</p>
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-between gap-2 text-[11px] font-bold">
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-pill border border-line bg-bg px-2.5 py-1 text-muted">{rec.type}</span>
+          <span className="inline-flex items-center gap-1 text-muted"><Clock size={12} /> ±{rec.minutes} mnt</span>
+        </div>
+        {rec.resourceUrl && (
+          <a
+            href={rec.resourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
+          >
+            <ExternalLink size={11} /> {rec.resourceLabel || 'Sumber'}
+          </a>
+        )}
+      </div>
+    </article>
   )
 }

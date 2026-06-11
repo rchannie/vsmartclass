@@ -7,7 +7,7 @@ Teknologi Digital Pendidikan.
 ## Tech Stack
 
 React 19 + Vite · Tailwind CSS v3 · Zustand · React Query · React Router v6 ·
-Supabase (PostgreSQL + Auth + Realtime + Edge Functions) · Gemini 1.5 Flash ·
+Supabase (PostgreSQL + Auth + Realtime + Edge Functions) · Gemini 2.5 Flash ·
 Recharts · Lucide React
 
 ## Menjalankan (mode demo — tanpa backend)
@@ -41,7 +41,7 @@ Kode kelas demo: `VSC-7QK2` (XI MIPA 2 · SMA Negeri 3 Bandung).
 3. Deploy Edge Functions dan set secret Gemini:
 
    ```bash
-   supabase functions deploy generate-questions update-bloom-profile get-recommendations
+   supabase functions deploy generate-questions evaluate-essay update-bloom-profile get-recommendations
    supabase secrets set GEMINI_API_KEY=...
    ```
 

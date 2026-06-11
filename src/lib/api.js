@@ -10,6 +10,7 @@ import {
   demoGenerateQuestions, demoAdaptiveQuestion, computeProfileUpdate,
 } from './demo'
 import { levelOf } from './bloom'
+import { buildStudentRecs } from './recs'
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -271,11 +272,15 @@ export async function deleteQuestion(id) {
 export async function generateQuestions(params) {
   if (isSupabaseConfigured) {
     const data = await invokeEdge('generate-questions', params)
-    return data.questions
+    return data.questions  // already persisted by Edge Function
   }
   // Simulasi latensi AI agar shimmer terlihat (UX rule #5)
   await delay(1800)
-  return demoGenerateQuestions(params)
+  const questions = demoGenerateQuestions(params)
+  const db = loadDB()
+  db.questions.push(...questions)
+  saveDB(db)
+  return questions
 }
 
 // ---------------------------------------------------------------------------
@@ -303,14 +308,23 @@ export async function createSession({ workspaceId, userId, topic, subject }) {
 }
 
 // Ambil soal berikutnya: dari bank (published, memuat level target) → fallback AI
+// Prioritas: MCQ, tapi esai diizinkan (khususnya C6/target tinggi)
 export async function nextQuestion({ workspaceId, topic, subject, target, excludeIds = [] }) {
   const bank = await getQuestions({ workspaceId, topic, publishedOnly: true })
-  const candidates = bank.filter(
+  const mcqCandidates = bank.filter(
     (q) => q.type === 'mcq' && !excludeIds.includes(q.id) &&
       (q.options || []).some((o) => o.bloom === target),
   )
-  if (candidates.length) {
-    return candidates[Math.floor(Math.random() * candidates.length)]
+  if (mcqCandidates.length) {
+    return mcqCandidates[Math.floor(Math.random() * mcqCandidates.length)]
+  }
+  // Coba esai jika tidak ada MCQ untuk target ini (terutama untuk C5–C6)
+  const essayCandidates = bank.filter(
+    (q) => q.type === 'essay' && !excludeIds.includes(q.id) &&
+      (q.bloom_target || []).includes(target),
+  )
+  if (essayCandidates.length) {
+    return essayCandidates[Math.floor(Math.random() * essayCandidates.length)]
   }
   if (isSupabaseConfigured) {
     try {
@@ -323,18 +337,53 @@ export async function nextQuestion({ workspaceId, topic, subject, target, exclud
   return demoAdaptiveQuestion({ topic, subject, target })
 }
 
+// Evaluasi jawaban esai via Gemini → bloom_level_achieved + feedback + followUpPrompt
+export async function evaluateEssay({ answer, rubric, topic, subject, targetBloom }) {
+  if (isSupabaseConfigured) {
+    const data = await invokeEdge('evaluate-essay', { answer, rubric, topic, subject, targetBloom })
+    return data
+  }
+  // Demo fallback: heuristic berdasarkan panjang jawaban
+  await delay(1200)
+  const wordCount = answer.trim().split(/\s+/).length
+  const level = wordCount < 20 ? 'C1' : wordCount < 50 ? 'C2' : wordCount < 100 ? 'C3' : wordCount < 150 ? 'C4' : 'C5'
+  return {
+    bloom_level_achieved: level,
+    feedback: `Jawabanmu menunjukkan karakteristik berpikir ${level} (${wordCount} kata). Coba perluas dengan menghubungkan konsep ke situasi nyata.`,
+    followUpPrompt: `Bagaimana kamu akan menerapkan konsep ini jika kondisinya berubah menjadi berbeda?`,
+  }
+}
+
+// Update bloom_profiles secara live (per-jawaban) — fire-and-forget, tanpa increment session_count
+export async function updateLiveBloomSnapshot(sessionId) {
+  if (isSupabaseConfigured) {
+    invokeEdge('update-bloom-profile', { sessionId, live: true }).catch(() => {})
+    return
+  }
+  // Demo: dispatch event agar heatmap guru ter-refresh
+  window.dispatchEvent(new CustomEvent('vsc:bloom-updated', { detail: { sessionId } }))
+}
+
 export async function recordAnswer(sessionId, answer) {
   if (isSupabaseConfigured) {
     await supabase.from('session_answers').insert({ session_id: sessionId, ...answer })
+    // Snapshot atomik per-jawaban agar heatmap guru ter-update live
+    updateLiveBloomSnapshot(sessionId)
     return
   }
   const db = loadDB()
   db.session_answers.push({ id: newId(), session_id: sessionId, ...answer, answered_at: new Date().toISOString() })
   saveDB(db)
+  updateLiveBloomSnapshot(sessionId)
 }
 
 export async function completeSession({ sessionId, workspaceId, userId, topic, answers }) {
-  const finalLevel = Math.max(1, ...answers.map((a) => levelOf(a.bloom_chosen)))
+  const lvlCounts = answers.reduce((acc, a) => {
+    const l = levelOf(a.bloom_chosen); acc[l] = (acc[l] || 0) + 1; return acc
+  }, {})
+  const finalLevel = Math.max(1, Number(
+    Object.entries(lvlCounts).sort(([a, ca], [b, cb]) => cb - ca || Number(b) - Number(a))[0][0]
+  ))
   if (isSupabaseConfigured) {
     await supabase.from('sessions')
       .update({ completed_at: new Date().toISOString(), bloom_level: finalLevel, item_count: answers.length })
@@ -415,16 +464,115 @@ export async function getSessions({ workspaceId, userId }) {
 
 // Statistik dashboard guru (4 stat cards)
 export async function getClassStats(workspaceId) {
-  const [profiles, questions] = await Promise.all([
+  const [profiles, questions, sessions] = await Promise.all([
     getBloomProfiles(workspaceId),
     getQuestions({ workspaceId }),
+    getSessions({ workspaceId }),
   ])
-  const weekAgo = Date.now() - 7 * 86400000
+  const weekAgo    = Date.now() - 7  * 86400000
+  const twoWeekAgo = Date.now() - 14 * 86400000
+
   const aiThisWeek = questions.filter((q) => new Date(q.created_at).getTime() >= weekAgo).length
-  const levelUp = profiles.filter((p) => p.trend > 0).length
-  const attention = profiles.filter((p) => p.current_level <= 1 || p.trend < 0).length
-  const avg = profiles.length
+  const attention  = profiles.filter((p) => p.current_level <= 1 || p.trend < 0).length
+  const avg        = profiles.length
     ? profiles.reduce((s, p) => s + p.current_level, 0) / profiles.length
     : 0
-  return { aiThisWeek, levelUp, attention, avgLevel: avg }
+
+  // % siswa naik ≥1 Bloom Level dalam 14 hari terakhir
+  // Bandingkan sesi pertama vs terakhir dalam window per siswa (butuh ≥2 sesi)
+  const recentSess = sessions.filter(
+    (s) => s.completed_at && new Date(s.completed_at).getTime() >= twoWeekAgo && s.bloom_level,
+  )
+  const activeIds = [...new Set(recentSess.map((s) => s.user_id))]
+  const roseCount = activeIds.filter((uid) => {
+    const sorted = recentSess
+      .filter((s) => s.user_id === uid)
+      .sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at))
+    return sorted.length >= 2 && sorted.at(-1).bloom_level > sorted[0].bloom_level
+  }).length
+  const levelUpPct = activeIds.length > 0 ? Math.round((roseCount / activeIds.length) * 100) : 0
+
+  return { aiThisWeek, levelUp: levelUpPct, attention, avgLevel: avg }
+}
+
+// ---------------------------------------------------------------------------
+// VARK LEARNING STYLE
+// ---------------------------------------------------------------------------
+
+export async function getVarkStyle(userId) {
+  if (isSupabaseConfigured) {
+    const { data } = await supabase.from('profiles').select('vark_style').eq('id', userId).maybeSingle()
+    return data?.vark_style || null
+  }
+  const u = loadDB().users.find((x) => x.id === userId)
+  return u?.vark_style || null
+}
+
+export async function saveVarkStyle(userId, style) {
+  if (isSupabaseConfigured) {
+    await supabase.from('profiles').update({ vark_style: style }).eq('id', userId)
+    return
+  }
+  const db = loadDB()
+  const u = db.users.find((x) => x.id === userId)
+  if (u) { u.vark_style = style; saveDB(db) }
+}
+
+// ---------------------------------------------------------------------------
+// REKOMENDASI SISWA (Gemini via Edge Function; demo: template lokal)
+// ---------------------------------------------------------------------------
+
+export async function getStudentRecs(userId, workspaceId, topic, varkStyle) {
+  if (isSupabaseConfigured) {
+    return await invokeEdge('get-recommendations', { userId, workspaceId, topic, varkStyle })
+  }
+  const p = loadDB().bloom_profiles.find(
+    (x) => x.user_id === userId && x.workspace_id === workspaceId && x.topic === topic,
+  ) || null
+  const { weakest, recs } = buildStudentRecs(p)
+  return { studentRecs: recs, weakest }
+}
+
+// ---------------------------------------------------------------------------
+// PROYEK MINI — PENGUMPULAN LAPORAN SISWA
+// ---------------------------------------------------------------------------
+
+export async function submitProject({ workspaceId, userId, topic, fileName, fileSize, description }) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from('project_submissions')
+      .insert({ workspace_id: workspaceId, user_id: userId, topic, file_name: fileName, file_size: fileSize, description })
+      .select().single()
+    if (error) throw error
+    return data
+  }
+  const db = loadDB()
+  if (!db.project_submissions) db.project_submissions = []
+  const submission = {
+    id: newId(), workspace_id: workspaceId, user_id: userId, topic,
+    file_name: fileName, file_size: fileSize, description,
+    submitted_at: new Date().toISOString(),
+  }
+  db.project_submissions.push(submission)
+  saveDB(db)
+  return submission
+}
+
+export async function getProjectSubmissions(workspaceId, topic) {
+  if (isSupabaseConfigured) {
+    let q = supabase
+      .from('project_submissions')
+      .select('*, profiles(full_name)')
+      .eq('workspace_id', workspaceId)
+      .order('submitted_at', { ascending: false })
+    if (topic) q = q.eq('topic', topic)
+    const { data, error } = await q
+    if (error) throw error
+    return data.map((s) => ({ ...s, full_name: s.profiles?.full_name || '—' }))
+  }
+  const db = loadDB()
+  return (db.project_submissions || [])
+    .filter((s) => s.workspace_id === workspaceId && (!topic || s.topic === topic))
+    .map((s) => ({ ...s, full_name: db.users.find((u) => u.id === s.user_id)?.full_name || '—' }))
+    .sort((a, b) => (a.submitted_at > b.submitted_at ? -1 : 1))
 }

@@ -19,6 +19,94 @@ komponen, alur, dan copywriting.
 
 ---
 
+## LANDASAN TEORI
+
+VSmartClass dibangun di atas lima teori pendidikan yang telah divalidasi secara empiris.
+Setiap fitur utama aplikasi berakar pada salah satu atau kombinasi teori berikut.
+
+### 1. Taksonomi Bloom Revisi (Anderson & Krathwohl, 2001)
+> Anderson, L.W., & Krathwohl, D.R. (Eds.). (2001). *A Taxonomy for Learning,
+> Teaching, and Assessing: A Revision of Bloom's Taxonomy of Educational Objectives*.
+> New York: Longman.
+
+Revisi Krathwohl mengubah kata benda (Knowledge → Evaluate) menjadi kata kerja (C1
+Mengingat → C6 Mencipta) dan memperkenalkan dimensi proses kognitif yang lebih eksplisit.
+**Implementasi di VSmartClass:** setiap soal diberi label C1–C6; profil mastery siswa
+direpresentasikan sebagai vektor 6 dimensi; sesi adaptif menaiki level satu demi satu
+dengan threshold `consecutive_success ≥ 2` sebelum naik.
+
+### 2. Zone of Proximal Development / ZPD (Vygotsky, 1978)
+> Vygotsky, L.S. (1978). *Mind in Society: The Development of Higher Psychological
+> Processes*. Cambridge, MA: Harvard University Press.
+
+ZPD mendefinisikan rentang antara apa yang dapat dikerjakan siswa sendiri dan apa yang
+bisa dicapai dengan bantuan. Scaffolding mengisi celah ini. **Implementasi di VSmartClass:**
+rekomendasi aktivitas selalu menyasar level *terlemah + 1* (bukan langsung melompat ke C6);
+feedback formatif pada setiap soal berperan sebagai scaffolding instan.
+
+### 3. Gaya Belajar VARK (Fleming & Mills, 1992)
+> Fleming, N.D., & Mills, C. (1992). Not another inventory, rather a catalyst for
+> reflection. *To Improve the Academy*, 11, 137–155.
+
+Model VARK mengklasifikasikan preferensi belajar menjadi Visual, Auditori, Baca-Tulis
+(Read/Write), dan Kinestetik. **Implementasi di VSmartClass:** survei 4 pertanyaan pada
+onboarding siswa menyimpan `vark_style` di tabel `profiles`; Edge Function
+`get-recommendations` meneruskan profil VARK ke Gemini agar judul dan metode aktivitas
+disesuaikan dengan gaya belajar dominan siswa.
+
+### 4. Direct Instruction (Rosenshine, 2012)
+> Rosenshine, B. (2012). Principles of instruction: Research-based strategies that all
+> teachers should know. *American Educator*, 36(1), 12–39.
+
+Direct Instruction menekankan penjelasan eksplisit, demonstrasi bertahap, dan latihan
+terbimbing sebelum latihan mandiri. **Implementasi di VSmartClass:** dipetakan ke level
+C1–C2 sebagai strategi default; Gemini menghasilkan soal recall dan pemahaman yang
+cocok untuk tahap penguatan awal.
+
+### 5. Cooperative Learning (Johnson, Johnson & Holubec, 1994)
+> Johnson, D.W., Johnson, R.T., & Holubec, E.J. (1994). *Cooperative Learning in the
+> Classroom*. Alexandria, VA: ASCD.
+
+Pembelajaran kooperatif meningkatkan penguasaan melalui interaksi terstruktur antar
+teman sebaya. **Implementasi di VSmartClass:** dipetakan ke level C3 sebagai strategi
+transisi dari pemahaman ke penerapan; rekomendasi guru di halaman Rekomendasi menyarankan
+metode diskusi kelompok untuk siswa plateau.
+
+### 6. Problem-Based Learning / PBL (Hmelo-Silver, 2004)
+> Hmelo-Silver, C.E. (2004). Problem-based learning: What and how do students learn?
+> *Educational Psychology Review*, 16(3), 235–266.
+
+PBL menyajikan masalah nyata yang kompleks sebagai titik masuk pembelajaran, mendorong
+pemikiran kritis tingkat tinggi. **Implementasi di VSmartClass:** dipetakan ke level C4;
+soal esai dengan rubrik Bloom C4–C5 dirancang sebagai mini-PBL problem. Rekomendasi
+siswa di level C4 mengarahkan ke latihan analisis berbasis kasus.
+
+### 7. Project Exhibition / Project-Based Learning (Krajcik & Shin, 2014)
+> Krajcik, J., & Shin, N. (2014). Project-based learning. In R.K. Sawyer (Ed.),
+> *The Cambridge Handbook of the Learning Sciences* (2nd ed., pp. 275–297).
+> Cambridge University Press.
+
+Proyek akhir sebagai artefak nyata (exhibit) merupakan bukti penguasaan C6 (Mencipta).
+**Implementasi di VSmartClass:** fitur `ProjectSubmit` memungkinkan siswa mengumpulkan
+laporan proyek mini; guru melihat daftar submission di halaman Rekomendasi Guru sebagai
+bukti pencapaian C6.
+
+---
+
+### Tabel Pemetaan Teori → Fitur
+
+| Teori | Level Bloom | Komponen / Fitur |
+|---|---|---|
+| Taksonomi Bloom Revisi | C1–C6 | Semua soal, bloom_profiles, adaptasi level |
+| ZPD Vygotsky | +1 dari posisi saat ini | Adaptive session, rec target level |
+| VARK Fleming & Mills | — | `VarkSurvey`, parameter prompt Gemini |
+| Direct Instruction Rosenshine | C1–C2 | Strategi default soal recall/pemahaman |
+| Cooperative Learning Johnson | C3 | Saran diskusi kelompok, strategi rekomendasi |
+| Problem-Based Learning Hmelo-Silver | C4 | Soal esai analitis, rec aktivitas kasus |
+| Project Exhibition Krajcik & Shin | C6 | `ProjectSubmit`, submission list guru |
+
+---
+
 ## TECH STACK
 
 ```
@@ -27,7 +115,7 @@ Styling   : Tailwind CSS v3  (atau CSS Modules jika lebih cocok)
 State     : Zustand (global) + React Query (server state)
 Router    : React Router v6
 Backend   : Supabase (PostgreSQL + Auth + Realtime + Edge Functions)
-AI        : Google Gemini 1.5 Flash via Supabase Edge Function
+AI        : Google Gemini 2.5 Flash via Supabase Edge Function
 Charts    : Recharts (RadarChart, BarChart, LineChart)
 Icons     : Lucide React (line-art, konsisten — JANGAN pakai emoji di UI)
 Fonts     : Plus Jakarta Sans (utama), Space Mono (monospace kode/label)
@@ -117,9 +205,12 @@ questions (
   type          text check (type in ('mcq', 'essay')),
   bloom_target  text[],               -- ["C1","C2","C3","C4"]
   prompt        text not null,
-  options       jsonb,                -- array of {id, text, bloom, feedback}
+  options       jsonb,                -- array of {id, text, bloom, indicator, feedback}
   rubric        jsonb,                -- essay only: array of {bloom, desc}
   published     bool default false,
+  -- difficulty_tier: DERIVED (tidak disimpan) — dihitung dari bloom_target tertinggi
+  --   max C1–C2 → "Dasar" · max C3–C4 → "Menengah" · max C5–C6 → "Lanjut"
+  --   fungsi: difficultyTierOf(bloom_target) di src/lib/bloom.js
   created_at    timestamptz default now()
 )
 
@@ -216,83 +307,114 @@ Setiap opsi punya border-left berwarna bloom-level-nya.
 Tombol "Publikasikan ke kelas" dan "Tinjau & edit".
 
 **Hasil Esai:**
-Pertanyaan + rubrik berlabel Bloom (C2, C3, C4, C5 masing-masing satu kriteria).
+Pertanyaan + rubrik berlabel Bloom (C2, C3, C4, C5 — empat kriteria; C1 dan C6 tidak
+disertakan karena C1 terlalu sederhana untuk rubrik esai dan C6 di luar jangkauan umum).
 
 **Edge Function: `generate-questions`**
 
+Zero-shot prompt — tidak ada few-shot examples. Instruksi Bloom + JSON schema sudah cukup
+untuk Gemini 2.5 Flash menghasilkan soal berkualitas tinggi secara konsisten.
+
 ```typescript
 // supabase/functions/generate-questions/index.ts
-// Input: { subject, topic, grade, type, count, maxBloom }
-// Output: { questions: Question[] }
+// Input : { subject, topic, grade, type, count, maxBloom, workspaceId }
+// Output: { questions: Question[] }  — sudah di-insert ke DB (published=false)
 
-const systemPrompt = `
-Kamu adalah asisten pendidik berbasis Taksonomi Bloom Revisi Anderson & Krathwohl.
-
-Tugas: buat ${count} soal ${type === 'mcq' ? 'Pilihan Ganda' : 'Esai'} untuk mapel
-${subject}, topik "${topic}", jenjang SMA kelas ${grade}.
-
-Untuk Pilihan Ganda:
-- Setiap soal punya 4 opsi (A–D).
-- Setiap opsi HARUS mewakili level Bloom yang BERBEDA (C1 s.d. maks C${maxBloom}).
-- Urutkan opsi dari level terendah ke tertinggi.
-- Setiap opsi punya: text (jawaban), bloom (C1/C2/C3/C4), indicator (1 kalimat
-  deskripsi proses kognitif yang terjadi), feedback (1–2 kalimat formatif untuk siswa).
-- Tidak ada "opsi benar" tunggal — semua opsi valid di level-nya masing-masing.
-
-Untuk Esai:
-- 1 soal terbuka yang bisa dijawab di berbagai kedalaman kognitif.
-- Rubrik: 4 kriteria masing-masing untuk C2, C3, C4, C5.
-
-Output: JSON murni, tidak ada teks lain di luar JSON.
-Schema MCQ:
+// Prompt meminta JSON murni dengan schema:
+// MCQ:
 {
   "questions": [{
     "prompt": "...",
     "type": "mcq",
     "bloomTarget": ["C1","C2","C3","C4"],
-    "options": [{ "id":"A","text":"...","bloom":"C1","indicator":"...","feedback":"..." }]
+    "options": [{ "id":"A","text":"...","bloom":"C1","indicator":"...","feedback":"..." }],
+    "rubric": null
   }]
 }
-`
+// Essay:
+{
+  "questions": [{
+    "prompt": "...",
+    "type": "essay",
+    "bloomTarget": ["C2","C3","C4","C5"],
+    "options": null,
+    "rubric": [{ "bloom":"C2","desc":"..." }, ...]
+  }]
+}
 ```
 
-Simpan hasil ke tabel `questions` (published=false awalnya).
-Regenerate = panggil Edge Function baru, replace baris lama.
+Soal disimpan ke tabel `questions` (published=false). Guru meninjau lalu publish ke kelas.
+Regenerate = panggil Edge Function baru; soal lama tetap di DB sampai guru hapus manual.
 
 ---
 
 ### MODUL 3 — Sesi Soal Adaptif (Siswa)
 
-**Alur:**
+**Dua dimensi adaptasi yang bekerja bersama:**
+
+1. **Dimensi topik** — guru menentukan topik yang dipublikasikan ke kelas; siswa mengerjakan topik yang diberikan guru. Rekomendasi personal (Modul 4) memandu siswa fokus ke topik terlemah mereka, sehingga pemilihan topik bersifat guru-driven dan recommendation-driven, bukan otomatis oleh engine sesi.
+2. **Dimensi level Bloom** — engine sesi menentukan target level soal berikutnya secara real-time (intra-session) dan antar-sesi (inter-session).
+
+**Alur intra-sesi (per soal):**
 
 ```
-1. Siswa buka topik → mulai sesi → target awal = C2
-2. Tampil soal (MCQ berlabel Bloom)
-3. Siswa pilih opsi → tampil feedback instan per opsi
-4. Sistem hitung next target:
-     if chosen_bloom_level >= target_level → next_target = chosen_level + 1 (maks C6)
-     else                                 → next_target = chosen_level (tetap/turun)
-5. Loader "AI menyesuaikan soal…" (1.5 dtk simulasi) + info adaptasi
-6. Ambil soal berikutnya dari bank soal sesuai target, atau generate on-the-fly
-7. Ulangi sampai 5–10 soal
-8. Layar ringkasan: bar chart bloom snapshot sesi, bloom level dicapai, CTA → Lihat Profil
-9. Update bloom_profiles di Supabase
+1. Siswa buka topik
+   - Sesi pertama topik ini (isDiagnostic=true)  → target awal C3 ("Kalibrasi Awal")
+   - Sesi berikutnya (isDiagnostic=false)         → target awal = level profil terakhir
+2. Tampil soal dari bank soal (guru sudah generate + publish sebelumnya)
+   - Soal MCQ: siswa pilih opsi → bloom_chosen = opt.bloom (langsung diketahui)
+   - Soal Esai: siswa ketik jawaban → dikirim ke Edge Function evaluate-essay → 
+     Gemini menilai → bloom_level_achieved + feedback konstruktif + follow-up prompt
+3. Jawaban disimpan atomik ke session_answers (Supabase Edge Function)
+4. Saat siswa baca feedback, sistem pre-fetch soal N+1 di background
+5. Sistem hitung next target (consecutive-success):
+     chosen >= target, streak < 2  →  next = target          [bangun streak]
+     chosen >= target, streak ≥ 2  →  next = target + 1      [naik, streak reset]
+     chosen <  target               →  next = chosen, streak=0 [turun/reset + scaffolding tip]
+   → Target C6: soal ditampilkan sebagai "Tantangan Mencipta" (proyek mini)
+6. Loader "AI menyesuaikan soal…" (1.5 dtk, atau 0.6 dtk bila soal sudah di-prefetch)
+7. Tampil soal berikutnya dari bank sesuai target baru
+8. Ulangi sampai 6 soal (SESSION_LENGTH)
+9. finalLevel = modus level yang dipilih (mode, bukan MAX — mencegah inflasi)
+10. Layar ringkasan: bar chart bloom snapshot sesi, bloom level, CTA → Lihat Profil
+11. Upsert bloom_profiles di Supabase (final — increment session_count + trend)
 ```
+
+**Adaptasi antar-sesi (inter-session) — blend 60/40:**
+`bloom_profiles` diperbarui tiap sesi selesai menggunakan weighted blend:
+```
+mastery_baru = mastery_lama × 0.6 + bukti_sesi_ini × 100 × 0.4
+level naik jika mastery_C{n} ≥ 60%
+```
+Ini ekuivalen dengan aturan "2 sesi berturut-turut": setelah sesi pertama di C3 (mastery=40%), baru setelah sesi kedua konsisten (mastery=64%) level resmi naik ke C3 dan sesi berikutnya menargetkan C4. Performa tidak konsisten otomatis memperlambat kenaikan.
+
+> **Bank soal per level**: guru generate soal ke bank (published=true), sesi siswa mengambil
+> dari bank sesuai `target` level. Fallback: jika bank kosong untuk target tertentu, Edge
+> Function generate-questions dipanggil on-demand dengan `adaptive: true`.
 
 **State machine sesi (Zustand):**
 ```typescript
-type Phase = 'idle' | 'question' | 'feedback' | 'generating' | 'done'
+type Phase = 'idle' | 'question' | 'feedback' | 'evaluating' | 'generating' | 'done'
+//           evaluating: khusus esai — menunggu Gemini menilai jawaban siswa
 interface SessionState {
-  sessionId: string | null
-  items: Question[]
-  currentIdx: number
-  phase: Phase
-  picked: Option | null
-  target: BloomLevel          // "C1"–"C6"
-  answers: Answer[]
-  startSession: (workspaceId, topic) => void
-  choose: (option) => void
-  next: () => void
+  sessionId:    string | null
+  items:        Question[]
+  currentIdx:   number
+  phase:        Phase
+  picked:       Option | null
+  target:       BloomLevel      // "C1"–"C6"
+  streak:       number          // jawaban berturut-turut on-target; naik setelah ≥ 2
+  isDiagnostic: boolean         // true = sesi pertama topik ini, mulai C3
+  prefetchedQ:  Question | null // soal N+1 yang di-fetch saat siswa baca feedback N
+  answers:      Answer[]
+  adaptation:   { from, to, direction } | null
+  finalLevel:   number | null   // modus level sesi (bukan MAX)
+  result:       BloomProfile | null
+  startSession:  (params: { workspaceId, userId, topic, subject, isDiagnostic, startLevel }) => void
+  choose:        (option: Option) => void            // MCQ: bloom langsung dari opt.bloom
+  submitEssay:   (text: string) => Promise<void>     // Esai: kirim ke evaluate-essay Edge Fn
+  next:          () => Promise<void>
+  reset:         () => void
 }
 ```
 
@@ -307,64 +429,81 @@ interface SessionState {
 
 ### MODUL 4 — Rekomendasi Personal
 
-**Untuk Guru — berbasis distribusi kelas:**
+**Kerangka pedagogis — 4-strategi mapping Bloom:**
+Rekomendasi guru menggunakan **4-strategi mapping** berbasis distribusi `bloom_profiles` aktual kelas (bukan urutan linier Gagné's Nine Events). Alasan: mapping berbasis data lebih actionable untuk guru SMA karena langsung terhubung ke level Bloom terukur, bukan tahap instruksi yang diasumsikan.
 
-Mapping otomatis dari `bloom_profiles`:
-```
-Mayoritas C1–C2 → Direct Instruction (demonstrasi visual, analogi)
-Tersebar C2–C3  → Cooperative Learning (Think-Pair-Share)
-Sudah C3–C4     → Problem-Based Learning (Socratic questioning)
-Sebagian C5–C6  → Project Exhibition (peer teaching)
-```
-Tampilkan sebagai 4 card dengan border-top berwarna bloom level, metode sebagai chip.
+| Distribusi kelas | Strategi | Metode kunci |
+|---|---|---|
+| Mayoritas C1–C2 | Direct Instruction | Demonstrasi visual, analogi, worked examples |
+| Tersebar C2–C3 | Cooperative Learning | Think-Pair-Share, peer explanation |
+| Kelas di C3–C4 | Problem-Based Learning | Masalah kontekstual, Socratic questioning |
+| Sebagian C5–C6 | Project Exhibition | Proyek terbuka, peer teaching |
 
-**Untuk Siswa — berbasis bloom_profile individu:**
+Pemilihan otomatis: `pickClassStrategy(profiles)` di `src/lib/recs.js`.
+
+**Untuk Guru — per-topik breakdown:**
+- Tampilkan distribusi kelas (chip per level) di panel atas.
+- Per-topik: rata-rata level kelas, badge **Siap C6** (avg ≥ 5) atau **Perlu Penguatan** (avg ≤ 2), jumlah laporan proyek yang masuk.
+- 4 card strategi mengajar dengan border-top warna bloom, metode sebagai chip.
+
+**Untuk Siswa — berbasis bloom_profile individu + VARK:**
+- **Survei VARK** (4 pertanyaan): tentukan gaya belajar dominan (Visual/Auditori/Baca-Tulis/Kinestetik). Disimpan di `profiles.vark_style`. Tampil sekali saat pertama buka halaman rekomendasi.
 - Identifikasi level terlemah (nilai terendah di profil radar).
-- Generate 3 rekomendasi: 1 penguatan level saat ini + 2 untuk naik level.
-- Tampil sebagai card: bloom badge, judul aktivitas, alasan (mengapa cocok untuk siswa ini), tipe (Visual/Latihan/Penguatan) + estimasi waktu.
+- Generate 3 rekomendasi via Edge Function `get-recommendations` (Gemini 2.5 Flash): judul aktivitas + alasan + tipe + estimasi waktu.
+- Tiap rekomendasi: **tautan sumber belajar terverifikasi** (`resourceUrl` dari `belajar.kemdikbud.go.id` / `id.khanacademy.org`) dan **challenge question** untuk mendorong naik level.
 - CTA card C6 "Tantangan Mencipta" di bagian bawah.
+- Mode demo: fallback ke template lokal `ACTIVITIES` di `src/lib/recs.js`.
+
+**Proyek Mini (C6):**
+- Siswa mengunggah laporan proyek via form `/siswa/proyek`.
+- Input: file (PDF/doc), topik, deskripsi singkat.
+- `api.submitProject()` → menyimpan metadata ke tabel `project_submissions` (Supabase) atau localStorage (demo).
+- Guru melihat daftar laporan per topik di halaman Rekomendasi.
 
 ---
 
 ### MODUL 5 — Bloom Analytics Dashboard (Guru)
 
-**4 visualisasi utama:**
+**Proses — catatan implementasi:**
+- **Agregasi**: Saat ini menggunakan runtime query (`getClassStats()` di `src/lib/api.js`) + `useMemo()` di client — cukup untuk skala demo (≤50 siswa). Materialized View adalah jalur upgrade produksi; namun Supabase Realtime tidak kompatibel dengan MV (`postgres_changes` hanya bekerja pada tabel biasa), sehingga heatmap live tetap mengandalkan tabel `bloom_profiles` langsung.
+- **Visualisasi**: `BloomRadar` menggunakan Recharts `RadarChart`. Komponen lain menggunakan CSS grid / SVG murni karena lebih tepat: `ClassHeatmap` (CSS grid — Recharts tidak punya native heatmap grid), `TrajectoryChart` (SVG murni — titik berwarna per bloom level), `GrowthBars` (flexbox — lebih ringan dari Recharts BarChart). Dependensi `recharts` tetap tercatat di `package.json`.
+- **Realtime**: `supabase.channel('bloom-updates').on('postgres_changes', ...)` pada tabel `bloom_profiles` + `sessions`.
+
+**Visualisasi:**
 
 **a. Stat Cards (4 kartu di atas)**
 ```
-Soal dibuat AI minggu ini  |  Siswa naik ≥1 level  |  Perlu perhatian  |  Rata-rata kelas
+Soal dibuat AI minggu ini  |  Naik ≥1 level · 2 minggu (%)  |  Perlu perhatian  |  Rata-rata kelas
 ```
-Data dari query Supabase aggregasi.
+"Naik ≥1 level · 2 minggu" = **persentase** siswa aktif dalam 14 hari terakhir yang level akhirnya lebih tinggi dari level awal dalam window tersebut. Dihitung di `getClassStats()` dengan membandingkan sesi pertama vs terakhir per siswa dalam window 14 hari.
 
 **b. Bloom Class Heatmap**
 Grid: baris = topik, kolom = C1–C6, sel = % siswa di level itu.
 Warna sel = bloom color dengan opacity proporsional ke % (rendah = pudar, tinggi = solid).
-Angka di dalam sel. Hover scale(1.06).
-
-Implementasi dengan Recharts atau CSS grid murni (ikuti prototipe — bukan library chart).
+Angka di dalam sel. Hover scale(1.06). Implementasi: CSS grid murni (`ClassHeatmap.jsx`).
 
 **c. Trajektori kognitif siswa (line chart)**
 X: sesi 1–N, Y: bloom level 1–6.
 Selector siswa (dropdown) di header panel.
 Area fill gradient (teal, opacity rendah).
 Setiap titik: lingkaran warna bloom-level-nya.
-Y-axis label: C1–C6 berwarna.
-
-Recharts `ComposedChart` + `Area` + `Line` + `ScatterChart` custom, **atau** SVG murni (gunakan kode prototipe sebagai referensi).
+Y-axis label: C1–C6 berwarna. Implementasi: SVG murni (`TrajectoryChart.jsx`).
 
 **d. Growth stacked bars**
 X: Minggu 1–4, Y: stacked 100% (distribusi bloom).
-Warna tiap segmen = bloom color.
+Warna tiap segmen = bloom color. Implementasi: flexbox murni (`GrowthBars.jsx`).
 
 **e. Radar chart (profil siswa individual)**
 6 sumbu = C1–C6, nilai 0–100 per sumbu.
-Recharts `RadarChart` + `Radar`.
+Recharts `RadarChart` + `Radar` (`BloomRadar.jsx`).
 
 **f. Tabel aktivitas kelas**
-Kolom: Nama, Bloom Level (chip), Tren (▲/▼/—), Sesi, Status.
+Kolom: Nama, Bloom Level (chip), Tren (▲/▼/—), Sesi, Status & Saran.
 Status chip: "On-track" (c3), "Plateau" (c4), "Perlu perhatian" (c6).
+**Filter Bloom Level**: pill C1–C6 + "Semua" di header panel — memfilter baris tabel secara langsung.
+Saran intervensi per siswa: plateau → "Variasikan metode — coba diskusi atau soal analisis baru"; attention → "Jadwalkan sesi penguatan langsung C1–C2".
 
-**Realtime:** Gunakan `supabase.channel('bloom-updates').on('postgres_changes', ...)` untuk update heatmap & stat cards live saat siswa menyelesaikan sesi.
+**Realtime:** `supabase.channel('bloom-updates').on('postgres_changes', ...)` untuk update heatmap & stat cards live saat siswa menyelesaikan sesi. Demo mode: `CustomEvent 'vsc:bloom-updated'`.
 
 ---
 
@@ -458,10 +597,10 @@ src/
 ### `generate-questions`
 Input: `{ subject, topic, grade, type, count, maxBloom, workspaceId }`
 Output: array questions (sesuai schema di atas)
-- Panggil Gemini 1.5 Flash API
+- Panggil Gemini 2.5 Flash API (zero-shot prompt)
 - Parse JSON response
 - Insert ke tabel `questions` (published=false)
-- Return questions
+- Return questions dengan UUID dari DB
 
 ### `get-recommendations`
 Input: `{ userId, workspaceId, topic }`
@@ -471,11 +610,25 @@ Output: `{ studentRecs, strategy }`
 - Generate 3 rekomendasi via prompt singkat ke Gemini
 - Return structured JSON
 
+### `evaluate-essay`
+Input: `{ answer, rubric, topic, subject, targetBloom }`
+Output: `{ bloom_level_achieved, feedback, followUpPrompt }`
+- Kirim jawaban siswa + rubrik Bloom-based ke Gemini 2.5 Flash
+- Gemini menilai kedalaman kognitif jawaban dan mencocokkan ke rubrik
+- Return: level yang dicapai (C1–C6), narasi feedback konstruktif, satu pertanyaan lanjutan
+  untuk mendorong siswa ke level berikutnya
+
 ### `update-bloom-profile`
-Input: `{ sessionId }` — dipanggil saat sesi selesai
+Input: `{ sessionId, live?: boolean }` — `live=true` untuk update per-soal (tanpa increment session_count)
 - Baca semua `session_answers` dalam sesi itu
-- Hitung distribusi bloom + average level + trend vs sesi sebelumnya
+- Hitung distribusi bloom + blend 60/40 mastery + current_level (mastery ≥ 60%)
+- `live=false` (default): juga increment session_count dan hitung trend vs sesi sebelumnya
 - Upsert ke `bloom_profiles`
+
+> Semua logika adaptif berjalan di **Supabase Edge Functions** (Deno runtime) — tidak ada
+> Express server terpisah. Bloom level siswa sudah tersimpan di skema soal (`opt.bloom`),
+> sehingga tidak diperlukan model klasifikasi (Bloom Classifier) terpisah untuk soal MCQ.
+> Klasifikasi AI hanya dipanggil untuk soal Esai via Edge Function `evaluate-essay`.
 
 ---
 

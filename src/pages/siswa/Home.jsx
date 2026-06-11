@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Play, KeyRound, BookOpen, ArrowRight } from 'lucide-react'
+import { Play, KeyRound, BookOpen, ArrowRight, ClipboardList, RotateCcw } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useQuestions } from '../../hooks/useClassData'
@@ -28,6 +28,15 @@ export default function StudentHome() {
 
   const profileOf = (topic) => myProfiles.find((p) => p.topic === topic)
   const bestProfile = myProfiles.reduce((a, b) => ((b?.current_level || 0) > (a?.current_level || 0) ? b : a), myProfiles[0])
+
+  // Hitung ringkasan status tugas untuk ditampilkan di beranda
+  const taskSummary = useMemo(() => {
+    const belum   = topics.filter((t) => { const p = profileOf(t); return !p || p.session_count === 0 }).length
+    const progres = topics.filter((t) => { const p = profileOf(t); return p && p.session_count > 0 && p.current_level < 6 }).length
+    const selesai = topics.filter((t) => { const p = profileOf(t); return p && p.current_level >= 6 }).length
+    return { belum, progres, selesai }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topics, myProfiles])
 
   return (
     <div className="space-y-6">
@@ -65,38 +74,77 @@ export default function StudentHome() {
               )}
             </Panel>
 
-            <Panel title="Topik belajar" subtitle="Mulai sesi adaptif — soal menyesuaikan caramu berpikir">
+            <Panel
+              title="Tugas Aktif"
+              subtitle="Soal yang diterbitkan gurumu"
+              action={
+                topics.length > 0 && (
+                  <Link to="/siswa/tugas" className="btn-ghost !px-2 !py-1 text-xs">
+                    Lihat semua <ArrowRight size={13} />
+                  </Link>
+                )
+              }
+            >
               {topics.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted">Belum ada topik. Tunggu gurumu menerbitkan soal.</p>
-              ) : (
-                <div className="space-y-3">
-                  {topics.map((topic) => {
-                    const p = profileOf(topic)
-                    const code = codeOf(p?.current_level || 1)
-                    return (
-                      <div key={topic} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-4">
-                        <div className="min-w-0">
-                          <p className="text-sm font-extrabold">{topic}</p>
-                          <div className="mt-1.5 flex items-center gap-2 text-xs text-muted">
-                            {p ? (
-                              <>
-                                <BloomBadge code={code} size="sm" />
-                                <span>{BLOOM[code].name}</span>
-                                <span>·</span>
-                                <span>{p.session_count} sesi</span>
-                              </>
-                            ) : (
-                              <span>Belum pernah dikerjakan — mulai dari C2</span>
-                            )}
-                          </div>
-                        </div>
-                        <Link to={`/siswa/sesi/${encodeURIComponent(topic)}`} className="btn-primary !px-4 !py-2 text-xs">
-                          <Play size={14} /> Mulai Sesi
-                        </Link>
-                      </div>
-                    )
-                  })}
+                <div className="flex flex-col items-center py-8 text-center">
+                  <ClipboardList size={28} className="text-muted" />
+                  <p className="mt-2 text-sm font-bold">Belum ada tugas</p>
+                  <p className="mt-1 text-xs text-muted">Tunggu gurumu menerbitkan soal.</p>
                 </div>
+              ) : (
+                <>
+                  {/* Ringkasan status */}
+                  <div className="mb-4 flex gap-3">
+                    {[
+                      { label: 'Belum', value: taskSummary.belum,   color: 'var(--muted)' },
+                      { label: 'Progres', value: taskSummary.progres, color: 'var(--c3)' },
+                      { label: 'Selesai', value: taskSummary.selesai, color: 'var(--c6)' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="flex-1 rounded-md border border-line p-3 text-center">
+                        <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
+                        <p className="text-[10px] font-bold text-muted">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 3 tugas teratas */}
+                  <div className="space-y-2">
+                    {topics.slice(0, 3).map((topic) => {
+                      const p = profileOf(topic)
+                      const code = codeOf(p?.current_level || 1)
+                      const isDone = p && p.session_count > 0
+                      return (
+                        <div key={topic} className="flex items-center justify-between gap-3 rounded-md border border-line p-3.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-extrabold">{topic}</p>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+                              {isDone ? (
+                                <>
+                                  <BloomBadge code={code} size="sm" />
+                                  <span>{BLOOM[code].name}</span>
+                                  <span>·</span>
+                                  <span>{p.session_count} sesi</span>
+                                </>
+                              ) : (
+                                <span>Belum dimulai — mulai dari C2</span>
+                              )}
+                            </div>
+                          </div>
+                          <Link
+                            to={`/siswa/sesi/${encodeURIComponent(topic)}`}
+                            className="btn-primary !px-3 !py-1.5 text-xs shrink-0"
+                          >
+                            {isDone ? <><RotateCcw size={12} /> Lanjut</> : <><Play size={12} /> Mulai</>}
+                          </Link>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {topics.length > 3 && (
+                    <Link to="/siswa/tugas" className="mt-3 block text-center text-xs font-bold text-accent hover:underline">
+                      +{topics.length - 3} tugas lainnya
+                    </Link>
+                  )}
+                </>
               )}
             </Panel>
 

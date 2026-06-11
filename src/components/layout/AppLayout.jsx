@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Sparkles, BarChart3, Lightbulb,
-  Home, UserRound, LogOut, Moon, Sun,
+  Home, ClipboardList, UserRound, FolderOpen, LogOut, Moon, Sun,
 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import Logo from '../ui/Logo'
@@ -17,8 +17,10 @@ const NAV = {
   ],
   siswa: [
     { to: '/siswa/beranda', label: 'Beranda', icon: Home },
+    { to: '/siswa/tugas', label: 'Tugas', icon: ClipboardList },
     { to: '/siswa/profil', label: 'Profil Bloom', icon: UserRound },
     { to: '/siswa/rekomendasi', label: 'Rekomendasi', icon: Lightbulb },
+    { to: '/siswa/proyek', label: 'Proyek', icon: FolderOpen },
   ],
 }
 

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Sparkles, TrendingUp, AlertTriangle, Gauge } from 'lucide-react'
+import { Sparkles, TrendingUp, AlertTriangle, Gauge, MessageCircle } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useClassStats, useSessions } from '../../hooks/useClassData'
 import { useClassBloomProfiles } from '../../hooks/useBloomProfile'
 import { useRealtimeBloom } from '../../hooks/useRealtime'
-import { codeOf, statusOf } from '../../lib/bloom'
+import { BLOOM, codeOf, statusOf } from '../../lib/bloom'
 import Panel from '../../components/ui/Panel'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
@@ -34,6 +34,11 @@ export default function TeacherAnalytics() {
 
   const [selectedStudent, setSelectedStudent] = useState('')
   const studentId = selectedStudent || students[0]?.id || ''
+
+  const [filterLevel, setFilterLevel] = useState(null) // null = semua level
+  const tableProfiles = filterLevel
+    ? profiles.filter((p) => p.current_level === filterLevel)
+    : profiles
 
   // Heatmap: baris = topik, sel = % siswa di level itu
   const heatmapRows = useMemo(() => {
@@ -101,7 +106,7 @@ export default function TeacherAnalytics() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Soal dibuat AI minggu ini" value={stats?.aiThisWeek ?? '—'} accent="var(--accent)" icon={Sparkles} />
-        <StatCard label="Siswa naik ≥1 level" value={stats?.levelUp ?? '—'} accent="var(--c3)" icon={TrendingUp} />
+        <StatCard label="Naik ≥1 level · 2 minggu" value={stats ? `${stats.levelUp}%` : '—'} accent="var(--c3)" icon={TrendingUp} />
         <StatCard label="Perlu perhatian" value={stats?.attention ?? '—'} accent="var(--c6)" icon={AlertTriangle} />
         <StatCard label="Rata-rata kelas" value={stats ? `C${stats.avgLevel.toFixed(1)}` : '—'} accent="var(--c4)" icon={Gauge} />
       </div>
@@ -135,7 +140,40 @@ export default function TeacherAnalytics() {
           <BloomRadar profile={selectedProfile} />
         </Panel>
 
-        <Panel className="lg:col-span-3" title="Aktivitas kelas" subtitle="Ringkasan posisi tiap siswa" bodyClassName="!p-0">
+        <Panel
+          className="lg:col-span-3"
+          title="Aktivitas kelas"
+          subtitle={filterLevel ? `Filter: C${filterLevel} — ${tableProfiles.length} siswa` : `${profiles.length} siswa`}
+          bodyClassName="!p-0"
+          action={
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setFilterLevel(null)}
+                className={`rounded-pill px-2.5 py-1 text-[11px] font-bold transition-colors ${filterLevel === null ? 'bg-accent text-white' : 'border border-line text-muted hover:bg-bg'}`}
+              >
+                Semua
+              </button>
+              {[1, 2, 3, 4, 5, 6].map((lvl) => {
+                const code = codeOf(lvl)
+                const active = filterLevel === lvl
+                return (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => setFilterLevel(active ? null : lvl)}
+                    className="rounded-pill px-2.5 py-1 text-[11px] font-bold transition-colors border border-line hover:opacity-90"
+                    style={active
+                      ? { background: BLOOM[code].color, color: '#fff', borderColor: BLOOM[code].color }
+                      : { color: BLOOM[code].color }}
+                  >
+                    {code}
+                  </button>
+                )
+              })}
+            </div>
+          }
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-muted">
@@ -143,30 +181,51 @@ export default function TeacherAnalytics() {
                 <th className="px-3 py-2.5 font-bold">Bloom Level</th>
                 <th className="px-3 py-2.5 text-center font-bold">Tren</th>
                 <th className="px-3 py-2.5 text-center font-bold">Sesi</th>
-                <th className="px-5 py-2.5 text-right font-bold">Status</th>
+                <th className="px-5 py-2.5 text-right font-bold">Status &amp; Saran</th>
               </tr>
             </thead>
             <tbody>
-              {profiles.map((p) => (
-                <tr
-                  key={p.id}
-                  className={`cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg ${p.user_id === studentId ? 'bg-bg' : ''}`}
-                  onClick={() => setSelectedStudent(p.user_id)}
-                >
-                  <td className="px-5 py-3">
-                    <span className="flex items-center gap-2.5">
-                      <Avatar name={p.full_name} size="sm" />
-                      <span className="font-bold">{p.full_name}</span>
-                    </span>
-                  </td>
-                  <td className="px-3 py-3"><BloomChip code={codeOf(p.current_level)} /></td>
-                  <td className="px-3 py-3 text-center"><TrendIcon trend={p.trend} /></td>
-                  <td className="px-3 py-3 text-center font-mono text-xs">{p.session_count}</td>
-                  <td className="px-5 py-3 text-right"><StatusTag status={statusOf(p)} /></td>
-                </tr>
-              ))}
-              {profiles.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-muted">Belum ada data sesi siswa.</td></tr>
+              {tableProfiles.map((p) => {
+                const status = statusOf(p)
+                return (
+                  <tr
+                    key={p.id}
+                    className={`cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg ${p.user_id === studentId ? 'bg-bg' : ''}`}
+                    onClick={() => setSelectedStudent(p.user_id)}
+                  >
+                    <td className="px-5 py-3">
+                      <span className="flex items-center gap-2.5">
+                        <Avatar name={p.full_name} size="sm" />
+                        <span className="font-bold">{p.full_name}</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-3"><BloomChip code={codeOf(p.current_level)} /></td>
+                    <td className="px-3 py-3 text-center"><TrendIcon trend={p.trend} /></td>
+                    <td className="px-3 py-3 text-center font-mono text-xs">{p.session_count}</td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusTag status={status} />
+                        {status === 'plateau' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-[color:var(--c4)] leading-tight max-w-[150px] text-right">
+                            <MessageCircle size={9} className="shrink-0" />
+                            Variasikan metode — coba diskusi atau soal analisis baru
+                          </span>
+                        )}
+                        {status === 'attention' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-[color:var(--c6)] leading-tight max-w-[150px] text-right">
+                            <MessageCircle size={9} className="shrink-0" />
+                            Jadwalkan sesi penguatan langsung C1–C2
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {tableProfiles.length === 0 && (
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-muted">
+                  {filterLevel ? `Tidak ada siswa di level C${filterLevel}.` : 'Belum ada data sesi siswa.'}
+                </td></tr>
               )}
             </tbody>
           </table>

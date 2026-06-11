@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { sessionId } = await req.json()
+    const { sessionId, live = false } = await req.json()
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -54,9 +54,16 @@ Deno.serve(async (req) => {
       if ((next[`c${lvl}`] as number) >= 60) level = lvl
     }
     next.current_level = level
-    next.trend = Math.sign(level - ((old?.current_level as number) ?? 1))
-    next.session_count = ((old?.session_count as number) ?? 0) + 1
     next.updated_at = new Date().toISOString()
+    if (!live) {
+      // Final update: increment session counter and compute trend
+      next.trend = Math.sign(level - ((old?.current_level as number) ?? 1))
+      next.session_count = ((old?.session_count as number) ?? 0) + 1
+    } else {
+      // Live per-answer update: preserve existing session_count and trend
+      next.trend = old?.trend ?? 0
+      next.session_count = old?.session_count ?? 0
+    }
 
     const { data: profile, error: upErr } = await supabase
       .from('bloom_profiles')

@@ -48,3 +48,11 @@ export function useSessions(workspaceId, userId) {
     enabled: Boolean(workspaceId),
   })
 }
+
+export function useProjectSubmissions(workspaceId) {
+  return useQuery({
+    queryKey: ['project-submissions', workspaceId],
+    queryFn: () => api.getProjectSubmissions(workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+}

@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Play, Flag, HeartHandshake, ArrowUpRight, ArrowDownRight, MoveRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Play, Flag, HeartHandshake, ArrowUpRight, ArrowDownRight, MoveRight, Target, Lightbulb } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
+import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import { useSession, SESSION_LENGTH } from '../../stores/session'
-import { BLOOM, BLOOM_LEVELS, codeOf, softBg } from '../../lib/bloom'
+import { BLOOM, BLOOM_LEVELS, codeOf, softBg, SCAFFOLD_TIPS } from '../../lib/bloom'
 import BloomBadge from '../../components/bloom/BloomBadge'
 import ProgressDots from '../../components/ui/ProgressDots'
 import AIThinking from '../../components/ui/AIThinking'
@@ -14,8 +15,15 @@ export default function StudentSession() {
   const topic = decodeURIComponent(rawTopic)
   const { user } = useAuth()
   const { active } = useActiveWorkspace(user?.id)
+  const { data: myProfiles = [] } = useMyBloomProfiles(user?.id, active?.id)
   const navigate = useNavigate()
   const s = useSession()
+
+  // Deteksi apakah ini sesi pertama untuk topik ini
+  const existingProfile = myProfiles.find((p) => p.topic === topic && p.session_count > 0)
+  const isDiagnostic    = !existingProfile
+  const startLevel      = existingProfile ? codeOf(existingProfile.current_level || 1) : 'C2'
+  const introTarget     = isDiagnostic ? 'C3' : startLevel
 
   // keluar halaman = sesi baru berikutnya mulai bersih
   useEffect(() => () => useSession.getState().reset(), [])
@@ -30,7 +38,7 @@ export default function StudentSession() {
   }
 
   const start = () =>
-    s.startSession({ workspaceId: active.id, userId: user.id, topic, subject: active.subject })
+    s.startSession({ workspaceId: active.id, userId: user.id, topic, subject: active.subject, isDiagnostic, startLevel })
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -46,23 +54,34 @@ export default function StudentSession() {
       {/* ——— INTRO ——— */}
       {s.phase === 'idle' && (
         <div className="card fade-up p-7 text-center">
-          <BloomBadge code="C2" size="lg" soft className="!text-sm" />
+          {isDiagnostic ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-xs font-bold text-white"
+              style={{ background: BLOOM['C3'].color }}
+            >
+              <Target size={13} /> Kalibrasi Awal
+            </span>
+          ) : (
+            <BloomBadge code={startLevel} size="lg" soft className="!text-sm" />
+          )}
           <h1 className="mt-3 text-xl">{topic}</h1>
           <p className="mt-2 text-sm text-muted">
-            {SESSION_LENGTH} soal adaptif · mulai dari target C2 · soal menyesuaikan caramu menjawab.
+            {isDiagnostic
+              ? `Sesi pertamamu di topik ini — ${SESSION_LENGTH} soal untuk memetakan posisi berpikirmu. Mulai dari C3 agar kalibrasi lebih cepat.`
+              : `${SESSION_LENGTH} soal adaptif · melanjutkan dari ${startLevel} · soal menyesuaikan caramu menjawab.`}
           </p>
           <div
             className="mx-auto mt-4 flex max-w-md items-start gap-2.5 rounded-md p-3.5 text-left text-xs leading-relaxed"
-            style={{ background: softBg('C2', 10) }}
+            style={{ background: softBg(introTarget, 10) }}
           >
-            <HeartHandshake size={16} className="mt-0.5 shrink-0 text-c2" />
+            <HeartHandshake size={16} className="mt-0.5 shrink-0" style={{ color: BLOOM[introTarget].color }} />
             <span>
               <span className="font-extrabold">Tidak ada jawaban salah.</span> Setiap opsi mewakili cara
               berpikir yang berbeda — pilih yang paling dekat dengan caramu, dan sistem akan memahami levelmu.
             </span>
           </div>
           <button type="button" onClick={start} className="btn-primary mt-5 px-8">
-            <Play size={16} /> Mulai sesi
+            <Play size={16} /> {isDiagnostic ? 'Mulai kalibrasi' : 'Lanjutkan sesi'}
           </button>
         </div>
       )}
@@ -72,17 +91,17 @@ export default function StudentSession() {
         <>
           {s.adaptation && <AdaptInfo adaptation={s.adaptation} />}
           <AIThinking
-            label="AI menyesuaikan soal…"
-            sub={`Target berikutnya: ${s.target} · ${BLOOM[s.target].name}`}
+            label={s.isDiagnostic && s.currentIdx === 0 ? 'Menyiapkan soal kalibrasi…' : 'Menyesuaikan soal…'}
+            sub={`Target: ${s.target} · ${BLOOM[s.target].name}`}
           />
         </>
       )}
 
       {/* ——— SOAL & FEEDBACK ——— */}
-      {(s.phase === 'question' || s.phase === 'feedback') && <QuestionView s={s} />}
+      {(s.phase === 'question' || s.phase === 'feedback' || s.phase === 'evaluating') && <QuestionView s={s} />}
 
       {/* ——— RINGKASAN ——— */}
-      {s.phase === 'done' && <Summary s={s} topic={topic} />}
+      {s.phase === 'done' && <Summary s={s} topic={topic} isDiagnostic={s.isDiagnostic} />}
     </div>
   )
 }
@@ -96,13 +115,22 @@ function AdaptInfo({ adaptation }) {
       : direction < 0
         ? `Kita mantapkan dulu di ${to} sebelum melangkah lebih tinggi.`
         : `Target bertahan di ${to} — mari kuatkan level ini.`
+  const scaffold = direction < 0 ? SCAFFOLD_TIPS[to] : null
   return (
-    <div
-      className="fade-up flex items-center gap-2.5 rounded-md p-3.5 text-xs font-bold"
-      style={{ background: softBg(to, 12), color: BLOOM[to].color }}
-    >
-      <Icon size={16} />
-      {text}
+    <div className="space-y-1.5">
+      <div
+        className="fade-up flex items-center gap-2.5 rounded-md p-3.5 text-xs font-bold"
+        style={{ background: softBg(to, 12), color: BLOOM[to].color }}
+      >
+        <Icon size={16} />
+        {text}
+      </div>
+      {scaffold && (
+        <div className="fade-up flex items-start gap-2 rounded-md border border-line bg-surface px-3.5 py-2.5 text-xs text-muted">
+          <Lightbulb size={13} className="mt-0.5 shrink-0 text-[color:var(--c4)]" />
+          <span><span className="font-bold text-ink">Tips: </span>{scaffold}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -110,56 +138,77 @@ function AdaptInfo({ adaptation }) {
 function QuestionView({ s }) {
   const q = s.items[s.currentIdx]
   if (!q) return null
-  const isFeedback = s.phase === 'feedback'
-  const isLast = s.answers.length === SESSION_LENGTH - 1
+  const isFeedback  = s.phase === 'feedback'
+  const isEvaluating = s.phase === 'evaluating'
+  const isLast      = s.answers.length === SESSION_LENGTH - 1
+  const isEssay     = q.type === 'essay'
+  const isC6        = s.target === 'C6'
 
   return (
     <div className="space-y-4">
+      {/* Banner Tantangan Mencipta (C6) */}
+      {isC6 && (
+        <div
+          className="fade-up flex items-center gap-2.5 rounded-md px-4 py-3 text-xs font-bold text-white"
+          style={{ background: BLOOM.C6.color }}
+        >
+          <Target size={14} />
+          Tantangan Mencipta — kamu sudah di puncak Bloom! Soal ini mengundangmu untuk menciptakan sesuatu yang orisinal.
+        </div>
+      )}
+
       <div className="card fade-up overflow-hidden">
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <span className="text-xs font-bold text-muted">Soal {s.currentIdx + 1} dari {SESSION_LENGTH}</span>
           <span className="inline-flex items-center gap-1.5 text-xs font-bold">
-            <span className="text-muted">Target</span>
+            <span className="text-muted">{isEssay ? 'Esai' : 'Target'}</span>
             <BloomBadge code={s.target} size="md" />
           </span>
         </header>
         <div className="p-5">
           <p className="text-base font-extrabold leading-relaxed">{q.prompt}</p>
 
-          <div className="mt-4 space-y-2.5">
-            {(q.options || []).map((opt) => {
-              const picked = s.picked?.id === opt.id
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  disabled={isFeedback}
-                  onClick={() => s.choose(opt)}
-                  className="w-full rounded-md border-2 p-3.5 text-left transition-all disabled:cursor-default"
-                  style={{
-                    borderColor: picked ? BLOOM[opt.bloom].color : 'var(--border)',
-                    background: picked ? softBg(opt.bloom, 14) : 'var(--surface)',
-                    opacity: isFeedback && !picked ? 0.45 : 1,
-                  }}
-                >
-                  <span className="flex items-start gap-3">
-                    <span className="font-mono text-xs font-bold text-muted">{opt.id}.</span>
-                    <span className="flex-1 text-sm font-bold leading-snug">{opt.text}</span>
-                    <BloomBadge code={opt.bloom} size="sm" soft />
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          <p className="mt-4 text-center text-[11px] text-muted">
-            Tidak ada jawaban salah — pilih yang paling menggambarkan caramu berpikir.
-          </p>
+          {isEssay ? (
+            /* ——— Essay input ——— */
+            <EssayInput s={s} isLast={isLast} isEvaluating={isEvaluating} isFeedback={isFeedback} />
+          ) : (
+            /* ——— MCQ options ——— */
+            <>
+              <div className="mt-4 space-y-2.5">
+                {(q.options || []).map((opt) => {
+                  const picked = s.picked?.id === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={isFeedback}
+                      onClick={() => s.choose(opt)}
+                      className="w-full rounded-md border-2 p-3.5 text-left transition-all disabled:cursor-default"
+                      style={{
+                        borderColor: picked ? BLOOM[opt.bloom].color : 'var(--border)',
+                        background: picked ? softBg(opt.bloom, 14) : 'var(--surface)',
+                        opacity: isFeedback && !picked ? 0.45 : 1,
+                      }}
+                    >
+                      <span className="flex items-start gap-3">
+                        <span className="font-mono text-xs font-bold text-muted">{opt.id}.</span>
+                        <span className="flex-1 text-sm font-bold leading-snug">{opt.text}</span>
+                        <BloomBadge code={opt.bloom} size="sm" soft />
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-4 text-center text-[11px] text-muted">
+                Tidak ada jawaban salah — pilih yang paling menggambarkan caramu berpikir.
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Feedback instan per opsi (UX rule #3: selalu tampil sebelum lanjut) */}
-      {isFeedback && s.picked && (
+      {/* Feedback MCQ — instan per opsi */}
+      {isFeedback && s.picked && !isEssay && (
         <div
           className="card fade-up p-5"
           style={{ background: softBg(s.picked.bloom, 10), borderColor: BLOOM[s.picked.bloom].color }}
@@ -179,7 +228,61 @@ function QuestionView({ s }) {
   )
 }
 
-function Summary({ s, topic }) {
+function EssayInput({ s, isLast, isEvaluating, isFeedback }) {
+  const [text, setText] = useState('')
+  const result = s.essayResult  // { bloom_level_achieved, feedback, followUpPrompt }
+
+  if (isFeedback && result) {
+    const code = result.bloom_level_achieved
+    return (
+      <div
+        className="mt-4 space-y-3 rounded-md border p-4"
+        style={{ background: softBg(code, 10), borderColor: BLOOM[code].color }}
+      >
+        <div className="flex items-center gap-2">
+          <BloomBadge code={code} size="md" />
+          <p className="text-sm font-extrabold">{BLOOM[code].name} — level yang kamu tunjukkan</p>
+        </div>
+        <p className="text-sm leading-relaxed">{result.feedback}</p>
+        {result.followUpPrompt && (
+          <div className="flex items-start gap-2 rounded-md border border-line bg-surface px-3 py-2.5 text-xs">
+            <Lightbulb size={13} className="mt-0.5 shrink-0 text-[color:var(--c4)]" />
+            <span><span className="font-bold">Pertanyaan lanjutan: </span>{result.followUpPrompt}</span>
+          </div>
+        )}
+        <button type="button" onClick={s.next} className="btn-primary">
+          {isLast ? 'Selesaikan sesi' : 'Soal berikutnya'} <ArrowRight size={15} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      <textarea
+        className="input min-h-[120px] text-sm"
+        placeholder="Tuliskan jawabanmu di sini — tidak ada batasan panjang, ekspresikan pikiranmu…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={isEvaluating}
+      />
+      {isEvaluating ? (
+        <p className="text-center text-xs text-muted">AI sedang menilai jawabanmu…</p>
+      ) : (
+        <button
+          type="button"
+          disabled={text.trim().length < 10}
+          onClick={() => s.submitEssay(text)}
+          className="btn-primary"
+        >
+          Kirim jawaban <ArrowRight size={15} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Summary({ s, topic, isDiagnostic }) {
   // snapshot distribusi level yang dipilih selama sesi
   const counts = BLOOM_LEVELS.map(
     (code) => s.answers.filter((a) => a.bloom_chosen === code).length,
@@ -191,9 +294,10 @@ function Summary({ s, topic }) {
     <div className="card fade-up p-7">
       <div className="text-center">
         <span className="inline-flex items-center gap-2 rounded-pill px-4 py-2 text-sm font-extrabold text-white" style={{ background: BLOOM[finalCode].color }}>
-          <Flag size={15} /> Level tertinggi: {finalCode} · {BLOOM[finalCode].name}
+          {isDiagnostic ? <Target size={15} /> : <Flag size={15} />}
+          {isDiagnostic ? `Kalibrasi selesai: ${finalCode} · ${BLOOM[finalCode].name}` : `Level sesi ini: ${finalCode} · ${BLOOM[finalCode].name}`}
         </span>
-        <h2 className="mt-3 text-xl">Sesi selesai — kerja bagus!</h2>
+        <h2 className="mt-3 text-xl">{isDiagnostic ? 'Kalibrasi awal selesai!' : 'Sesi selesai — kerja bagus!'}</h2>
         <p className="mt-1 text-sm text-muted">{topic} · {s.answers.length} soal</p>
       </div>
 

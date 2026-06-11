@@ -100,6 +100,31 @@ export const TEACHING_STRATEGIES = [
 // Tipe aktivitas rekomendasi siswa
 export const REC_TYPES = ['Visual', 'Latihan', 'Penguatan']
 
+// Scaffolding tips — ditampilkan saat engine turunkan target (arah negatif)
+export const SCAFFOLD_TIPS = {
+  C1: 'Coba baca ulang materi pokoknya — fokus pada fakta dan definisi kuncinya.',
+  C2: 'Coba jelaskan konsep ini dengan kata-katamu sendiri tanpa melihat catatan.',
+  C3: 'Latih satu contoh soal serupa langkah demi langkah sebelum lanjut.',
+  C4: 'Pecah masalah menjadi bagian kecil dan cari hubungan antar bagiannya.',
+  C5: 'Bandingkan dua pendekatan berbeda — mana yang lebih kuat dan mengapa?',
+  C6: 'Rancang satu contoh orisinal yang menerapkan konsep ini di situasi baru.',
+}
+
+// Tier kesulitan soal — diturunkan dari bloom_target tertinggi
+// Dasar (C1–C2) · Menengah (C3–C4) · Lanjut (C5–C6)
+export const DIFFICULTY_TIERS = {
+  Dasar:    { label: 'Dasar',    range: 'C1–C2', className: 'bg-[color:var(--c2)]/10 text-[color:var(--c2)]' },
+  Menengah: { label: 'Menengah', range: 'C3–C4', className: 'bg-[color:var(--c4)]/10 text-[color:var(--c4)]' },
+  Lanjut:   { label: 'Lanjut',   range: 'C5–C6', className: 'bg-[color:var(--c5)]/10 text-[color:var(--c5)]' },
+}
+
+export function difficultyTierOf(bloomTarget = []) {
+  const max = Math.max(1, ...bloomTarget.map(levelOf))
+  if (max <= 2) return 'Dasar'
+  if (max <= 4) return 'Menengah'
+  return 'Lanjut'
+}
+
 // Status siswa untuk roster kelas: on-track / plateau / perlu perhatian
 export function statusOf(profile) {
   if (!profile) return 'attention'

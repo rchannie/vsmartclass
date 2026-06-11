@@ -45,9 +45,7 @@ export default function QuestionGenerator() {
         count: form.count, maxBloom: form.maxBloom,
         workspaceId: active.id, createdBy: user.id,
       })
-      // simpan ke bank soal (published=false); regenerate = baris baru menggantikan hasil di layar
-      const saved = await api.saveQuestions(questions.map((q) => ({ ...q, published: false })))
-      setResults(saved)
+      setResults(questions)
       setPhase('results')
       qc.invalidateQueries({ queryKey: ['questions'] })
       qc.invalidateQueries({ queryKey: ['class-stats'] })

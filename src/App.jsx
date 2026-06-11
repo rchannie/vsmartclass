@@ -16,9 +16,11 @@ import TeacherRecommendations from './pages/guru/Recommendations'
 import WorkspaceDetail from './pages/guru/WorkspaceDetail'
 
 import StudentHome from './pages/siswa/Home'
+import StudentTasks from './pages/siswa/Tasks'
 import StudentSession from './pages/siswa/Session'
 import StudentProfile from './pages/siswa/Profile'
 import StudentRecs from './pages/siswa/Recommendations'
+import ProjectSubmit from './pages/siswa/ProjectSubmit'
 
 export default function App() {
   const init = useAuth((s) => s.init)
@@ -62,9 +64,11 @@ export default function App() {
       >
         <Route index element={<Navigate to="beranda" replace />} />
         <Route path="beranda" element={<StudentHome />} />
+        <Route path="tugas" element={<StudentTasks />} />
         <Route path="sesi/:topic" element={<StudentSession />} />
         <Route path="profil" element={<StudentProfile />} />
         <Route path="rekomendasi" element={<StudentRecs />} />
+        <Route path="proyek" element={<ProjectSubmit />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/masuk" replace />} />
