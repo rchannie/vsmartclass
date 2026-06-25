@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Send, RefreshCcw, PencilLine, Check } from 'lucide-react'
+import { Sparkles, Send, RefreshCcw, PencilLine, Check, Library } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
+import { useQuestions } from '../../hooks/useClassData'
 import * as api from '../../lib/api'
 import { BLOOM_LEVELS, BLOOM, levelOf } from '../../lib/bloom'
 import Panel from '../../components/ui/Panel'
 import Segmented from '../../components/ui/Segmented'
 import AIThinking from '../../components/ui/AIThinking'
 import QuestionCard from '../../components/questions/QuestionCard'
+import BankQuestionRow from '../../components/questions/BankQuestionRow'
 
 const SUBJECTS = ['Matematika', 'Fisika', 'Biologi', 'Sejarah', 'Ekonomi', 'Lainnya…']
 
@@ -31,6 +33,16 @@ export default function QuestionGenerator() {
   const [error, setError] = useState('')
 
   const subject = form.subject === 'Lainnya…' ? form.customSubject : form.subject
+
+  // Bank soal yang sudah dipublikasikan ke kelas untuk topik yang sedang digarap —
+  // supaya guru tidak membuat duplikat saat generate soal baru. Bank lengkap semua
+  // tugas ada di menu terpisah "Bank Soal".
+  const topicTrimmed = form.topic.trim()
+  const { data: bank = [] } = useQuestions(active?.id, { publishedOnly: true })
+  const bankForTopic = useMemo(() => {
+    if (!topicTrimmed) return []
+    return bank.filter((q) => q.topic.toLowerCase() === topicTrimmed.toLowerCase())
+  }, [bank, topicTrimmed])
 
   const generate = async (e) => {
     e?.preventDefault()
@@ -65,8 +77,9 @@ export default function QuestionGenerator() {
       </header>
 
       <div className="grid items-start gap-5 lg:grid-cols-5">
-        {/* Form parameter */}
-        <Panel title="Parameter soal" subtitle="Atur konteks, AI menyusun soalnya" className="lg:col-span-2">
+        {/* Kolom kiri: form parameter + bank soal yang sudah terbit */}
+        <div className="space-y-5 lg:col-span-2">
+        <Panel title="Parameter soal" subtitle="Atur konteks, AI menyusun soalnya">
           <form onSubmit={generate} className="space-y-4">
             <div>
               <label className="label">Workspace tujuan</label>
@@ -159,6 +172,28 @@ export default function QuestionGenerator() {
             </button>
           </form>
         </Panel>
+
+        {/* Bank soal yang sudah terbit ke kelas untuk topik ini */}
+        <Panel
+          title="Bank soal terpublikasi"
+          subtitle={topicTrimmed ? `Topik "${topicTrimmed}"` : 'Isi topik dulu untuk melihat bank soalnya'}
+        >
+          {!topicTrimmed ? (
+            <p className="py-2 text-center text-xs text-muted">
+              Ketik topik di form sebelah untuk melihat soal yang sudah terbit di tugas ini.
+            </p>
+          ) : bankForTopic.length === 0 ? (
+            <p className="py-2 text-center text-xs text-muted">Belum ada soal terpublikasi untuk topik ini.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-muted">
+                <Library size={12} className="-mt-0.5 inline" /> {bankForTopic.length} soal sudah dipublikasikan untuk tugas ini
+              </p>
+              {bankForTopic.map((q) => <BankQuestionRow key={q.id} question={q} />)}
+            </div>
+          )}
+        </Panel>
+        </div>
 
         {/* Hasil */}
         <div className="space-y-4 lg:col-span-3">
@@ -262,3 +297,4 @@ function GeneratedQuestion({ question, index, onChange }) {
     </div>
   )
 }
+

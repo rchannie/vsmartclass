@@ -596,11 +596,33 @@ export async function getStudentRecs(userId, workspaceId, topic, varkStyle) {
 // PROYEK MINI — PENGUMPULAN LAPORAN SISWA
 // ---------------------------------------------------------------------------
 
-export async function submitProject({ workspaceId, userId, topic, fileName, fileSize, description }) {
+const PROJECT_BUCKET = 'project-files'
+
+// Mengunggah file laporan ke Supabase Storage sebelum mencatat submission.
+// Path: {workspaceId}/{userId}/{timestamp}_{filename} — dipakai juga oleh
+// RLS storage.objects untuk menentukan kepemilikan & keanggotaan workspace.
+export async function uploadProjectFile({ workspaceId, userId, file }) {
+  if (!isSupabaseConfigured) return null
+  const path = `${workspaceId}/${userId}/${Date.now()}_${file.name}`
+  const { error } = await supabase.storage.from(PROJECT_BUCKET).upload(path, file)
+  if (error) throw error
+  return path
+}
+
+export async function getProjectFileUrl(filePath) {
+  if (!isSupabaseConfigured || !filePath) return null
+  const { data, error } = await supabase.storage
+    .from(PROJECT_BUCKET)
+    .createSignedUrl(filePath, 60 * 10)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export async function submitProject({ workspaceId, userId, topic, fileName, fileSize, filePath, description }) {
   if (isSupabaseConfigured) {
     const { data, error } = await supabase
       .from('project_submissions')
-      .insert({ workspace_id: workspaceId, user_id: userId, topic, file_name: fileName, file_size: fileSize, description })
+      .insert({ workspace_id: workspaceId, user_id: userId, topic, file_name: fileName, file_size: fileSize, file_path: filePath, description })
       .select().single()
     if (error) throw error
     return data
@@ -609,7 +631,7 @@ export async function submitProject({ workspaceId, userId, topic, fileName, file
   if (!db.project_submissions) db.project_submissions = []
   const submission = {
     id: newId(), workspace_id: workspaceId, user_id: userId, topic,
-    file_name: fileName, file_size: fileSize, description,
+    file_name: fileName, file_size: fileSize, file_path: filePath, description,
     submitted_at: new Date().toISOString(),
   }
   db.project_submissions.push(submission)

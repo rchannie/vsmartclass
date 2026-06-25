@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Play, Flag, HeartHandshake, ArrowUpRight, ArrowDownRight, MoveRight, Target, Lightbulb } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Play, Flag, HeartHandshake, ArrowUpRight, ArrowDownRight, MoveRight, Target, Lightbulb, Send } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
@@ -160,10 +160,7 @@ function QuestionView({ s }) {
       <div className="card fade-up overflow-hidden">
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <span className="text-xs font-bold text-muted">Soal {s.currentIdx + 1} dari {SESSION_LENGTH}</span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold">
-            <span className="text-muted">{isEssay ? 'Esai' : 'Target'}</span>
-            <BloomBadge code={s.target} size="md" />
-          </span>
+          {isEssay && <span className="text-xs font-bold text-muted">Esai</span>}
         </header>
         <div className="p-5">
           <p className="text-base font-extrabold leading-relaxed">{q.prompt}</p>
@@ -185,15 +182,14 @@ function QuestionView({ s }) {
                       onClick={() => s.choose(opt)}
                       className="w-full rounded-md border-2 p-3.5 text-left transition-all disabled:cursor-default"
                       style={{
-                        borderColor: picked ? BLOOM[opt.bloom].color : 'var(--border)',
-                        background: picked ? softBg(opt.bloom, 14) : 'var(--surface)',
+                        borderColor: picked ? 'var(--accent)' : 'var(--border)',
+                        background: picked ? 'color-mix(in srgb, var(--accent) 10%, var(--surface))' : 'var(--surface)',
                         opacity: isFeedback && !picked ? 0.45 : 1,
                       }}
                     >
                       <span className="flex items-start gap-3">
                         <span className="font-mono text-xs font-bold text-muted">{opt.id}.</span>
                         <span className="flex-1 text-sm font-bold leading-snug">{opt.text}</span>
-                        <BloomBadge code={opt.bloom} size="sm" soft />
                       </span>
                     </button>
                   )
@@ -202,28 +198,45 @@ function QuestionView({ s }) {
               <p className="mt-4 text-center text-[11px] text-muted">
                 Tidak ada jawaban salah — pilih yang paling menggambarkan caramu berpikir.
               </p>
+              {!isFeedback && (
+                <button
+                  type="button"
+                  disabled={!s.picked}
+                  onClick={s.confirmChoice}
+                  className="btn-primary mt-4 w-full disabled:opacity-40"
+                >
+                  <Send size={15} /> Kirim jawaban
+                </button>
+              )}
             </>
           )}
         </div>
       </div>
 
-      {/* Feedback MCQ — instan per opsi */}
+      {/* Feedback MCQ — modal setelah jawaban dikirim */}
       {isFeedback && s.picked && !isEssay && (
-        <div
-          className="card fade-up p-5"
-          style={{ background: softBg(s.picked.bloom, 10), borderColor: BLOOM[s.picked.bloom].color }}
-        >
+        <FeedbackModal>
           <div className="flex items-center gap-2">
             <BloomBadge code={s.picked.bloom} size="md" />
             <p className="text-sm font-extrabold">{BLOOM[s.picked.bloom].name}</p>
           </div>
           {s.picked.indicator && <p className="mt-2 text-xs text-muted">{s.picked.indicator}</p>}
           <p className="mt-2 text-sm leading-relaxed">{s.picked.feedback}</p>
-          <button type="button" onClick={s.next} className="btn-primary mt-4">
+          <button type="button" onClick={s.next} className="btn-primary mt-5 w-full">
             {isLast ? 'Selesaikan sesi' : 'Soal berikutnya'} <ArrowRight size={15} />
           </button>
-        </div>
+        </FeedbackModal>
       )}
+    </div>
+  )
+}
+
+function FeedbackModal({ children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="fade-up max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl bg-surface p-6 shadow-2xl">
+        {children}
+      </div>
     </div>
   )
 }
@@ -235,25 +248,22 @@ function EssayInput({ s, isLast, isEvaluating, isFeedback }) {
   if (isFeedback && result) {
     const code = result.bloom_level_achieved
     return (
-      <div
-        className="mt-4 space-y-3 rounded-md border p-4"
-        style={{ background: softBg(code, 10), borderColor: BLOOM[code].color }}
-      >
+      <FeedbackModal>
         <div className="flex items-center gap-2">
           <BloomBadge code={code} size="md" />
           <p className="text-sm font-extrabold">{BLOOM[code].name} — level yang kamu tunjukkan</p>
         </div>
-        <p className="text-sm leading-relaxed">{result.feedback}</p>
+        <p className="mt-2 text-sm leading-relaxed">{result.feedback}</p>
         {result.followUpPrompt && (
-          <div className="flex items-start gap-2 rounded-md border border-line bg-surface px-3 py-2.5 text-xs">
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-line bg-bg px-3 py-2.5 text-xs">
             <Lightbulb size={13} className="mt-0.5 shrink-0 text-[color:var(--c4)]" />
             <span><span className="font-bold">Pertanyaan lanjutan: </span>{result.followUpPrompt}</span>
           </div>
         )}
-        <button type="button" onClick={s.next} className="btn-primary">
+        <button type="button" onClick={s.next} className="btn-primary mt-5 w-full">
           {isLast ? 'Selesaikan sesi' : 'Soal berikutnya'} <ArrowRight size={15} />
         </button>
-      </div>
+      </FeedbackModal>
     )
   }
 

@@ -11,6 +11,7 @@ import Join from './pages/Join'
 
 import TeacherDashboard from './pages/guru/Dashboard'
 import QuestionGenerator from './pages/guru/QuestionGenerator'
+import QuestionBank from './pages/guru/QuestionBank'
 import QuestionDetail from './pages/guru/QuestionDetail'
 import TeacherAnalytics from './pages/guru/Analytics'
 import TeacherRecommendations from './pages/guru/Recommendations'
@@ -49,6 +50,7 @@ export default function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<TeacherDashboard />} />
         <Route path="soal/baru" element={<QuestionGenerator />} />
+        <Route path="bank-soal" element={<QuestionBank />} />
         <Route path="soal/:id" element={<QuestionDetail />} />
         <Route path="analitik" element={<TeacherAnalytics />} />
         <Route path="rekomendasi" element={<TeacherRecommendations />} />

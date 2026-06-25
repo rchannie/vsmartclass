@@ -96,9 +96,16 @@ create table if not exists public.project_submissions (
   topic         text not null,
   file_name     text not null,
   file_size     bigint,
+  file_path     text,
   description   text,
   submitted_at  timestamptz default now()
 );
+
+-- Bucket Storage untuk file laporan proyek (Modul 6).
+-- Path konvensi: {workspace_id}/{user_id}/{timestamp}_{filename}
+insert into storage.buckets (id, name, public)
+values ('project-files', 'project-files', false)
+on conflict (id) do nothing;
 
 -- ============================================================ REALTIME
 -- (dibungkus agar tidak error bila tabel sudah terdaftar di publication)
@@ -247,6 +254,26 @@ create policy "projects insert own" on public.project_submissions
 create policy "projects read" on public.project_submissions
   for select to authenticated using (
     user_id = auth.uid() or public.is_guru_of(workspace_id)
+  );
+
+-- storage.objects untuk bucket project-files
+drop policy if exists "project files insert own" on storage.objects;
+drop policy if exists "project files read" on storage.objects;
+
+create policy "project files insert own" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'project-files'
+    and (storage.foldername(name))[2] = auth.uid()::text
+    and public.is_member((storage.foldername(name))[1]::uuid)
+  );
+
+create policy "project files read" on storage.objects
+  for select to authenticated using (
+    bucket_id = 'project-files'
+    and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or public.is_guru_of((storage.foldername(name))[1]::uuid)
+    )
   );
 
 -- ============================================================ TRIGGER PROFIL

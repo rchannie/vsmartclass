@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
-import { BadgeCheck, Rocket, FileText, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { BadgeCheck, Rocket, FileText, Users, Download, Loader2 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useClassBloomProfiles } from '../../hooks/useBloomProfile'
 import { useProjectSubmissions } from '../../hooks/useClassData'
 import { BLOOM, TEACHING_STRATEGIES, codeOf } from '../../lib/bloom'
 import { pickClassStrategy } from '../../lib/recs'
+import * as api from '../../lib/api'
 import BloomBadge from '../../components/bloom/BloomBadge'
 import Panel from '../../components/ui/Panel'
 
@@ -14,6 +15,18 @@ export default function TeacherRecommendations() {
   const { workspaces, active, setActive } = useActiveWorkspace(user?.id)
   const { data: profiles = [] } = useClassBloomProfiles(active?.id)
   const { data: submissions = [] } = useProjectSubmissions(active?.id)
+  const [downloadingId, setDownloadingId] = useState(null)
+
+  const handleDownload = async (submission) => {
+    if (!submission.file_path) return
+    setDownloadingId(submission.id)
+    try {
+      const url = await api.getProjectFileUrl(submission.file_path)
+      if (url) window.open(url, '_blank', 'noopener')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   const recommended = pickClassStrategy(profiles)
 
@@ -139,9 +152,25 @@ export default function TeacherRecommendations() {
                       )}
                     </div>
                     <div className="shrink-0 text-right text-muted">
-                      <p className="inline-flex items-center gap-1">
-                        <FileText size={10} /> {s.file_name}
-                      </p>
+                      {s.file_path ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(s)}
+                          disabled={downloadingId === s.id}
+                          className="inline-flex items-center gap-1 font-bold text-accent hover:underline disabled:opacity-50"
+                        >
+                          {downloadingId === s.id ? (
+                            <Loader2 size={10} className="animate-spin" />
+                          ) : (
+                            <Download size={10} />
+                          )}
+                          {s.file_name}
+                        </button>
+                      ) : (
+                        <p className="inline-flex items-center gap-1">
+                          <FileText size={10} /> {s.file_name}
+                        </p>
+                      )}
                       <p className="mt-0.5">{new Date(s.submitted_at).toLocaleDateString('id-ID')}</p>
                     </div>
                   </div>

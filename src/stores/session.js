@@ -12,7 +12,7 @@
 //   isDiagnostic = false →  start dari startLevel (level profil terakhir siswa)
 //
 // Pre-generation strategy:
-//   choose() langsung pre-fetch soal N+1 di background saat siswa baca feedback soal N
+//   confirmChoice() langsung pre-fetch soal N+1 di background saat siswa baca feedback soal N
 //   → next() menggunakan prefetchedQ bila sudah siap (ADAPT_DELAY diperpendek ke 600ms)
 
 import { create } from 'zustand'
@@ -60,15 +60,22 @@ export const useSession = create((set, get) => ({
     set({ sessionId, items: [firstQ], currentIdx: 0, phase: 'question', target: startTarget })
   },
 
+  // Memilih/mengganti opsi — belum mengirim jawaban, siswa masih bisa berganti pilihan.
   choose: (option) => {
     if (get().phase !== 'question') return
+    set({ picked: option })
+  },
+
+  // Mengirim opsi yang dipilih → masuk fase feedback (ditampilkan sebagai modal).
+  confirmChoice: () => {
     const s = get()
-    set({ picked: option, phase: 'feedback' })
+    if (s.phase !== 'question' || !s.picked) return
+    set({ phase: 'feedback' })
 
     // Pre-fetch soal N+1 di background segera setelah siswa menjawab,
     // sehingga soal sudah siap saat tombol "Soal berikutnya" diklik.
     if (s.answers.length + 1 < SESSION_LENGTH) {
-      const { nextTarget } = adaptNext(option.bloom, s.target, s.streak)
+      const { nextTarget } = adaptNext(s.picked.bloom, s.target, s.streak)
       api.nextQuestion({
         workspaceId: s.workspaceId,
         topic:       s.topic,

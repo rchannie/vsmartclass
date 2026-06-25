@@ -49,12 +49,14 @@ export default function ProjectSubmit() {
     setStatus('submitting')
     setErrorMsg('')
     try {
+      const filePath = await api.uploadProjectFile({ workspaceId: active.id, userId: user.id, file })
       await api.submitProject({
         workspaceId: active.id,
         userId: user.id,
         topic: selectedTopic,
         fileName: file.name,
         fileSize: file.size,
+        filePath,
         description: description.trim(),
       })
       setStatus('done')

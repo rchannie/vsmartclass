@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Sparkles, BarChart3, Lightbulb,
+  LayoutDashboard, Sparkles, Library, BarChart3, Lightbulb,
   Home, ClipboardList, UserRound, FolderOpen, LogOut, Moon, Sun, HelpCircle,
 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
@@ -14,6 +14,7 @@ const NAV = {
   guru: [
     { to: '/guru/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/guru/soal/baru', label: 'Buat Soal', icon: Sparkles },
+    { to: '/guru/bank-soal', label: 'Bank Soal', icon: Library },
     { to: '/guru/analitik', label: 'Analitik', icon: BarChart3 },
     { to: '/guru/rekomendasi', label: 'Rekomendasi', icon: Lightbulb },
   ],
