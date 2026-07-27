@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react'
-import { BadgeCheck, Rocket, FileText, Users, Download, Loader2 } from 'lucide-react'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { BadgeCheck, Rocket, FileText, Users, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useClassBloomProfiles } from '../../hooks/useBloomProfile'
 import { useProjectSubmissions } from '../../hooks/useClassData'
 import { BLOOM, TEACHING_STRATEGIES, codeOf } from '../../lib/bloom'
 import { pickClassStrategy } from '../../lib/recs'
-import * as api from '../../lib/api'
 import BloomBadge from '../../components/bloom/BloomBadge'
 import Panel from '../../components/ui/Panel'
 
@@ -15,18 +15,6 @@ export default function TeacherRecommendations() {
   const { workspaces, active, setActive } = useActiveWorkspace(user?.id)
   const { data: profiles = [] } = useClassBloomProfiles(active?.id)
   const { data: submissions = [] } = useProjectSubmissions(active?.id)
-  const [downloadingId, setDownloadingId] = useState(null)
-
-  const handleDownload = async (submission) => {
-    if (!submission.file_path) return
-    setDownloadingId(submission.id)
-    try {
-      const url = await api.getProjectFileUrl(submission.file_path)
-      if (url) window.open(url, '_blank', 'noopener')
-    } finally {
-      setDownloadingId(null)
-    }
-  }
 
   const recommended = pickClassStrategy(profiles)
 
@@ -135,50 +123,21 @@ export default function TeacherRecommendations() {
               </div>
             ))}
           </div>
-
-          {/* Daftar laporan per topik */}
-          {submissions.length > 0 && (
-            <div className="mt-5 border-t border-line pt-4">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">Laporan terbaru</p>
-              <div className="space-y-2">
-                {submissions.slice(0, 8).map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2.5 text-xs">
-                    <div className="min-w-0 flex-1">
-                      <span className="font-bold">{s.full_name}</span>
-                      <span className="mx-1.5 text-muted">·</span>
-                      <span className="text-muted">{s.topic}</span>
-                      {s.description && (
-                        <p className="mt-0.5 truncate text-muted">{s.description}</p>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-right text-muted">
-                      {s.file_path ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(s)}
-                          disabled={downloadingId === s.id}
-                          className="inline-flex items-center gap-1 font-bold text-accent hover:underline disabled:opacity-50"
-                        >
-                          {downloadingId === s.id ? (
-                            <Loader2 size={10} className="animate-spin" />
-                          ) : (
-                            <Download size={10} />
-                          )}
-                          {s.file_name}
-                        </button>
-                      ) : (
-                        <p className="inline-flex items-center gap-1">
-                          <FileText size={10} /> {s.file_name}
-                        </p>
-                      )}
-                      <p className="mt-0.5">{new Date(s.submitted_at).toLocaleDateString('id-ID')}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </Panel>
+      )}
+
+      {/* Laporan proyek lengkap sekarang punya menu sendiri: "Proyek Siswa" */}
+      {submissions.length > 0 && (
+        <Link
+          to="/guru/proyek-siswa"
+          className="card flex items-center justify-between gap-3 p-4 text-sm font-bold transition-colors hover:bg-bg"
+        >
+          <span className="inline-flex items-center gap-2">
+            <FileText size={15} className="text-accent" />
+            {submissions.length} laporan proyek siswa masuk — lihat &amp; unduh di menu Proyek Siswa
+          </span>
+          <ArrowRight size={15} className="text-muted" />
+        </Link>
       )}
 
       {/* 4 strategi mengajar */}

@@ -51,6 +51,47 @@ begin
     (v_elsa,   v_ws, 'Sistem Persamaan Linear', 50, 30, 18,  8,  3,  1, 1, -1, 6)
   on conflict (user_id, workspace_id, topic) do nothing;
 
+  -- Riwayat sessions — supaya Trajectory Chart & Growth Bars (yang baca tabel
+  -- sessions, bukan bloom_profiles) ikut terisi konsisten dengan angka di
+  -- bloom_profiles di atas.
+  insert into public.sessions (workspace_id, user_id, topic, subject, bloom_level, item_count, started_at, completed_at)
+  values
+    -- Aisyah — trend naik (akhir mendekati current_level 4)
+    (v_ws, v_aisyah, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '24 days', now() - interval '24 days' + interval '12 minutes'),
+    (v_ws, v_aisyah, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '19 days', now() - interval '19 days' + interval '12 minutes'),
+    (v_ws, v_aisyah, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '14 days', now() - interval '14 days' + interval '12 minutes'),
+    (v_ws, v_aisyah, 'Sistem Persamaan Linear', 'Matematika', 4, 6, now() - interval '9 days',  now() - interval '9 days'  + interval '12 minutes'),
+    (v_ws, v_aisyah, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '5 days',  now() - interval '5 days'  + interval '12 minutes'),
+    (v_ws, v_aisyah, 'Sistem Persamaan Linear', 'Matematika', 4, 6, now() - interval '2 days',  now() - interval '2 days'  + interval '12 minutes'),
+    -- Dimas — trend datar/plateau (berkisar di current_level 3)
+    (v_ws, v_dimas, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '25 days', now() - interval '25 days' + interval '12 minutes'),
+    (v_ws, v_dimas, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '20 days', now() - interval '20 days' + interval '12 minutes'),
+    (v_ws, v_dimas, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '15 days', now() - interval '15 days' + interval '12 minutes'),
+    (v_ws, v_dimas, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '10 days', now() - interval '10 days' + interval '12 minutes'),
+    (v_ws, v_dimas, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '6 days',  now() - interval '6 days'  + interval '12 minutes'),
+    (v_ws, v_dimas, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '3 days',  now() - interval '3 days'  + interval '12 minutes'),
+    -- Citra — trend naik (akhir mendekati current_level 5, paling unggul di kelas)
+    (v_ws, v_citra, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '26 days', now() - interval '26 days' + interval '12 minutes'),
+    (v_ws, v_citra, 'Sistem Persamaan Linear', 'Matematika', 4, 6, now() - interval '21 days', now() - interval '21 days' + interval '12 minutes'),
+    (v_ws, v_citra, 'Sistem Persamaan Linear', 'Matematika', 4, 6, now() - interval '16 days', now() - interval '16 days' + interval '12 minutes'),
+    (v_ws, v_citra, 'Sistem Persamaan Linear', 'Matematika', 5, 6, now() - interval '11 days', now() - interval '11 days' + interval '12 minutes'),
+    (v_ws, v_citra, 'Sistem Persamaan Linear', 'Matematika', 4, 6, now() - interval '7 days',  now() - interval '7 days'  + interval '12 minutes'),
+    (v_ws, v_citra, 'Sistem Persamaan Linear', 'Matematika', 5, 6, now() - interval '4 days',  now() - interval '4 days'  + interval '12 minutes'),
+    -- Bagas — trend datar/plateau (berkisar di current_level 2)
+    (v_ws, v_bagas, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '23 days', now() - interval '23 days' + interval '12 minutes'),
+    (v_ws, v_bagas, 'Sistem Persamaan Linear', 'Matematika', 1, 6, now() - interval '18 days', now() - interval '18 days' + interval '12 minutes'),
+    (v_ws, v_bagas, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '13 days', now() - interval '13 days' + interval '12 minutes'),
+    (v_ws, v_bagas, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '8 days',  now() - interval '8 days'  + interval '12 minutes'),
+    (v_ws, v_bagas, 'Sistem Persamaan Linear', 'Matematika', 1, 6, now() - interval '4 days',  now() - interval '4 days'  + interval '12 minutes'),
+    (v_ws, v_bagas, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '1 days',  now() - interval '1 days'  + interval '12 minutes'),
+    -- Elsa — trend turun (perlu perhatian, akhir di current_level 1)
+    (v_ws, v_elsa, 'Sistem Persamaan Linear', 'Matematika', 3, 6, now() - interval '22 days', now() - interval '22 days' + interval '12 minutes'),
+    (v_ws, v_elsa, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '17 days', now() - interval '17 days' + interval '12 minutes'),
+    (v_ws, v_elsa, 'Sistem Persamaan Linear', 'Matematika', 2, 6, now() - interval '12 days', now() - interval '12 days' + interval '12 minutes'),
+    (v_ws, v_elsa, 'Sistem Persamaan Linear', 'Matematika', 1, 6, now() - interval '7 days',  now() - interval '7 days'  + interval '12 minutes'),
+    (v_ws, v_elsa, 'Sistem Persamaan Linear', 'Matematika', 1, 6, now() - interval '3 days',  now() - interval '3 days'  + interval '12 minutes'),
+    (v_ws, v_elsa, 'Sistem Persamaan Linear', 'Matematika', 1, 6, now() - interval '1 days',  now() - interval '1 days'  + interval '12 minutes');
+
   -- 3 soal MCQ published (ringkas; versi lengkap ada di mode demo frontend)
   insert into public.questions (workspace_id, created_by, subject, topic, type, bloom_target, prompt, options, published)
   values

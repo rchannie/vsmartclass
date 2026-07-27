@@ -228,10 +228,13 @@ create policy "questions delete own" on public.questions
 
 -- sessions & answers
 drop policy if exists "sessions own" on public.sessions;
+drop policy if exists "sessions read by guru" on public.sessions;
 drop policy if exists "answers own" on public.session_answers;
 
 create policy "sessions own" on public.sessions
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "sessions read by guru" on public.sessions
+  for select to authenticated using (public.is_guru_of(workspace_id));
 create policy "answers own" on public.session_answers
   for all to authenticated
   using (exists (select 1 from public.sessions s where s.id = session_id and s.user_id = auth.uid()))

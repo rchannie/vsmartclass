@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Aset demo lomba (file dummy, tidak relevan untuk codebase)
+demo-assets/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

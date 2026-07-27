@@ -15,6 +15,7 @@ import QuestionBank from './pages/guru/QuestionBank'
 import QuestionDetail from './pages/guru/QuestionDetail'
 import TeacherAnalytics from './pages/guru/Analytics'
 import TeacherRecommendations from './pages/guru/Recommendations'
+import ProjectReports from './pages/guru/ProjectReports'
 import WorkspaceDetail from './pages/guru/WorkspaceDetail'
 
 import StudentHome from './pages/siswa/Home'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="soal/:id" element={<QuestionDetail />} />
         <Route path="analitik" element={<TeacherAnalytics />} />
         <Route path="rekomendasi" element={<TeacherRecommendations />} />
+        <Route path="proyek-siswa" element={<ProjectReports />} />
         <Route path="kelas/:id" element={<WorkspaceDetail />} />
       </Route>
 

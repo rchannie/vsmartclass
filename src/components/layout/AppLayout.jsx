@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Sparkles, Library, BarChart3, Lightbulb,
-  Home, ClipboardList, UserRound, FolderOpen, LogOut, Moon, Sun, HelpCircle,
+  LayoutDashboard, Sparkles, Library, BarChart3, Lightbulb, FolderKanban,
+  Home, ClipboardList, UserRound, FolderOpen, Lock, LogOut, Moon, Sun, HelpCircle,
 } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
+import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import Logo from '../ui/Logo'
 import Avatar from '../ui/Avatar'
 import OnboardingWizard from '../onboarding/OnboardingWizard'
@@ -17,13 +18,14 @@ const NAV = {
     { to: '/guru/bank-soal', label: 'Bank Soal', icon: Library },
     { to: '/guru/analitik', label: 'Analitik', icon: BarChart3 },
     { to: '/guru/rekomendasi', label: 'Rekomendasi', icon: Lightbulb },
+    { to: '/guru/proyek-siswa', label: 'Proyek Siswa', icon: FolderKanban },
   ],
   siswa: [
     { to: '/siswa/beranda', label: 'Beranda', icon: Home },
     { to: '/siswa/tugas', label: 'Tugas', icon: ClipboardList },
     { to: '/siswa/profil', label: 'Profil Bloom', icon: UserRound },
     { to: '/siswa/rekomendasi', label: 'Rekomendasi', icon: Lightbulb },
-    { to: '/siswa/proyek', label: 'Proyek', icon: FolderOpen },
+    { to: '/siswa/proyek', label: 'Proyek', icon: FolderOpen, lockable: true },
   ],
 }
 
@@ -33,6 +35,11 @@ export default function AppLayout({ role }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
   const items = NAV[role] || []
+
+  // Menu "Proyek" siswa terkunci sampai ia benar-benar mencapai C6 di topik manapun
+  // (Modul 6: bukti telah menyelesaikan seluruh tugas adaptif, bukan sekadar tersedia).
+  const { data: myProfiles = [] } = useMyBloomProfiles(role === 'siswa' ? profile?.id : undefined)
+  const hasReachedC6 = myProfiles.some((p) => p.current_level === 6)
 
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
   useEffect(() => {
@@ -60,20 +67,27 @@ export default function AppLayout({ role }) {
           <Logo size="sm" textClassName="text-base" />
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {items.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold transition-colors ${
-                  isActive ? 'bg-accent text-white' : 'text-muted hover:bg-bg hover:text-ink'
-                }`
-              }
-            >
-              <Icon size={17} />
-              {label}
-            </NavLink>
-          ))}
+          {items.map(({ to, label, icon: Icon, lockable }) => {
+            const locked = lockable && !hasReachedC6
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                title={locked ? 'Selesaikan semua tugas dan capai C6 untuk membuka menu ini' : undefined}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold transition-colors ${
+                    locked
+                      ? 'text-muted/50 hover:bg-bg hover:text-muted'
+                      : isActive ? 'bg-accent text-white' : 'text-muted hover:bg-bg hover:text-ink'
+                  }`
+                }
+              >
+                <Icon size={17} />
+                {label}
+                {locked && <Lock size={12} className="ml-auto" />}
+              </NavLink>
+            )
+          })}
         </nav>
         <div className="border-t border-line p-3">
           <div className="flex items-center gap-2.5 rounded-md px-2 py-2">
@@ -150,20 +164,24 @@ export default function AppLayout({ role }) {
 
       {/* Bottom tab — mobile (breakpoint 768px, UX rule #7) */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface md:hidden">
-        {items.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-bold ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
-          >
-            <Icon size={19} />
-            {label}
-          </NavLink>
-        ))}
+        {items.map(({ to, label, icon: Icon, lockable }) => {
+          const locked = lockable && !hasReachedC6
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-bold ${
+                  locked ? 'text-muted/50' : isActive ? 'text-accent' : 'text-muted'
+                }`
+              }
+            >
+              <Icon size={19} />
+              {label}
+              {locked && <Lock size={9} className="absolute right-3 top-1.5" />}
+            </NavLink>
+          )
+        })}
       </nav>
     </div>
   )

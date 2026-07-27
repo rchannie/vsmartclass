@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
-import { Upload, FileText, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, Loader2, AlertCircle, Lock } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useQuestions } from '../../hooks/useClassData'
+import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import * as api from '../../lib/api'
 
 const MAX_SIZE_MB = 10
@@ -12,9 +13,18 @@ export default function ProjectSubmit() {
   const { user } = useAuth()
   const { active } = useActiveWorkspace(user?.id)
   const { data: questions = [] } = useQuestions(active?.id, { publishedOnly: true })
+  const { data: myProfiles = [], isLoading: loadingProfiles } = useMyBloomProfiles(user?.id)
 
-  // Unique topics from published questions
-  const topics = [...new Set(questions.map((q) => q.topic).filter(Boolean))]
+  // Syarat Modul 6: hanya siswa yang sudah benar-benar mencapai C6 (Mencipta)
+  // di salah satu topik — bukti telah menyelesaikan seluruh tugas adaptif di
+  // topik itu — yang boleh mengumpulkan proyek.
+  const c6Topics = [...new Set(myProfiles.filter((p) => p.current_level === 6).map((p) => p.topic))]
+  const hasReachedC6 = c6Topics.length > 0
+
+  // Hanya tawarkan topik yang sudah benar-benar C6; fallback ke semua topik
+  // published kalau daftar soal di workspace belum sinkron dengan nama topik profil.
+  const publishedTopics = [...new Set(questions.map((q) => q.topic).filter(Boolean))]
+  const topics = c6Topics.length > 0 ? c6Topics : publishedTopics
 
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
@@ -64,6 +74,24 @@ export default function ProjectSubmit() {
       setErrorMsg(err.message || 'Terjadi kesalahan saat mengunggah.')
       setStatus('error')
     }
+  }
+
+  if (loadingProfiles) return null
+
+  if (!hasReachedC6) {
+    return (
+      <div className="card mx-auto max-w-md p-10 text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-bg text-muted">
+          <Lock size={22} />
+        </span>
+        <h2 className="mt-4 text-lg font-extrabold">Belum bisa mengumpulkan proyek</h2>
+        <p className="mt-2 text-sm text-muted">
+          Kumpulkan Proyek baru terbuka setelah kamu menyelesaikan semua tugas adaptif di suatu
+          topik dan mencapai level tertinggi <strong>C6 — Mencipta</strong>. Lanjutkan mengerjakan
+          sesi di halaman Tugas untuk membuka fitur ini.
+        </p>
+      </div>
+    )
   }
 
   if (status === 'done') {
