@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Download, Loader2, FileText, FolderKanban, Search } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Download, Loader2, FileText, FolderKanban, Search, PencilLine, Check } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useProjectSubmissions } from '../../hooks/useClassData'
@@ -11,6 +12,7 @@ import Panel from '../../components/ui/Panel'
 // terlepas dari halaman Rekomendasi (yang fokus ke strategi mengajar).
 export default function ProjectReports() {
   const { user } = useAuth()
+  const qc = useQueryClient()
   const { workspaces, active, setActive } = useActiveWorkspace(user?.id)
   const { data: submissions = [] } = useProjectSubmissions(active?.id)
   const [downloadingId, setDownloadingId] = useState(null)
@@ -97,38 +99,114 @@ export default function ProjectReports() {
       ) : (
         <div className="space-y-2">
           {filtered.map((s) => (
-            <div key={s.id} className="card flex items-center justify-between gap-3 p-4 text-sm">
-              <div className="min-w-0 flex-1">
-                <p className="font-extrabold">{s.full_name}</p>
-                <p className="mt-0.5 text-xs text-muted">{s.topic}</p>
-                {s.description && <p className="mt-1.5 text-xs leading-relaxed">{s.description}</p>}
-              </div>
-              <div className="shrink-0 text-right text-xs text-muted">
-                {s.file_path ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(s)}
-                    disabled={downloadingId === s.id}
-                    className="inline-flex items-center gap-1.5 font-bold text-accent hover:underline disabled:opacity-50"
-                  >
-                    {downloadingId === s.id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Download size={12} />
-                    )}
-                    {s.file_name}
-                  </button>
-                ) : (
-                  <p className="inline-flex items-center gap-1.5">
-                    <FileText size={12} /> {s.file_name}
-                  </p>
-                )}
-                <p className="mt-1">{new Date(s.submitted_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-              </div>
-            </div>
+            <SubmissionRow
+              key={s.id}
+              submission={s}
+              downloading={downloadingId === s.id}
+              onDownload={() => handleDownload(s)}
+              onReviewed={() => qc.invalidateQueries({ queryKey: ['project-submissions', active?.id] })}
+            />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Baris laporan + form nilai singkat (Modul 6 — "guru tinjau & beri nilai").
+function SubmissionRow({ submission: s, downloading, onDownload, onReviewed }) {
+  const [editing, setEditing] = useState(false)
+  const [score, setScore] = useState(s.score ?? '')
+  const [feedback, setFeedback] = useState(s.teacher_feedback ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const isReviewed = s.reviewed_at != null
+
+  const save = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.reviewProjectSubmission(s.id, {
+        score: score === '' ? null : Number(score),
+        teacherFeedback: feedback.trim() || null,
+      })
+      setEditing(false)
+      onReviewed()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="card p-4 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-extrabold">{s.full_name}</p>
+          <p className="mt-0.5 text-xs text-muted">{s.topic}</p>
+          {s.description && <p className="mt-1.5 text-xs leading-relaxed">{s.description}</p>}
+        </div>
+        <div className="shrink-0 text-right text-xs text-muted">
+          {s.file_path ? (
+            <button
+              type="button"
+              onClick={onDownload}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 font-bold text-accent hover:underline disabled:opacity-50"
+            >
+              {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+              {s.file_name}
+            </button>
+          ) : (
+            <p className="inline-flex items-center gap-1.5">
+              <FileText size={12} /> {s.file_name}
+            </p>
+          )}
+          <p className="mt-1">{new Date(s.submitted_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 border-t border-line pt-3">
+        {editing ? (
+          <form onSubmit={save} className="flex flex-wrap items-end gap-2.5">
+            <div>
+              <label className="label" htmlFor={`score-${s.id}`}>Nilai (0–100)</label>
+              <input
+                id={`score-${s.id}`}
+                type="number" min="0" max="100" className="input !w-24"
+                value={score} onChange={(e) => setScore(e.target.value)}
+              />
+            </div>
+            <div className="min-w-[200px] flex-1">
+              <label className="label" htmlFor={`fb-${s.id}`}>Catatan untuk siswa</label>
+              <input
+                id={`fb-${s.id}`}
+                className="input" placeholder="Catatan singkat (opsional)"
+                value={feedback} onChange={(e) => setFeedback(e.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={saving} className="btn-primary !py-2 text-xs">
+              {saving ? 'Menyimpan…' : 'Simpan nilai'}
+            </button>
+            <button type="button" className="btn-ghost !py-2 text-xs" onClick={() => setEditing(false)}>Batal</button>
+          </form>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            {isReviewed ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-pill bg-[color:var(--c3)]/10 px-2.5 py-1 font-extrabold text-[color:var(--c3)]">
+                  <Check size={11} /> Nilai: {s.score ?? '—'}
+                </span>
+                {s.teacher_feedback && <span className="text-muted">{s.teacher_feedback}</span>}
+              </div>
+            ) : (
+              <span className="text-xs text-muted">Belum dinilai</span>
+            )}
+            <button type="button" className="btn-ghost !px-2.5 !py-1.5 text-xs" onClick={() => setEditing(true)}>
+              <PencilLine size={12} /> {isReviewed ? 'Ubah nilai' : 'Beri nilai'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

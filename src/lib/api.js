@@ -9,7 +9,7 @@ import {
   loadDB, saveDB, demoSession, newId,
   demoGenerateQuestions, demoAdaptiveQuestion, computeProfileUpdate,
 } from './demo'
-import { levelOf } from './bloom'
+import { levelOf, summarizeMisconceptions } from './bloom'
 import { buildStudentRecs } from './recs'
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -413,6 +413,24 @@ export async function evaluateEssay({ answer, rubric, topic, subject, targetBloo
   }
 }
 
+// RF-11: evaluasi apakah alasan siswa untuk opsi bernalar C4+ benar-benar
+// menunjukkan penalaran level tsb (bukan sekadar tebakan/template).
+export async function evaluateJustification({ questionPrompt, optionText, bloomClaimed, justification, topic, subject }) {
+  if (isSupabaseConfigured) {
+    return await invokeEdge('evaluate-justification', { questionPrompt, optionText, bloomClaimed, justification, topic, subject })
+  }
+  // Demo fallback: heuristik panjang alasan (Edge Function produksi memakai Gemini)
+  await delay(900)
+  const wordCount = justification.trim().split(/\s+/).filter(Boolean).length
+  const verified = wordCount >= 8
+  return {
+    verified,
+    feedback: verified
+      ? `Alasanmu cukup menjelaskan mengapa jawaban ini menunjukkan penalaran ${bloomClaimed}.`
+      : `Alasanmu masih terlalu singkat untuk menunjukkan penalaran level ${bloomClaimed} — jelaskan "mengapa", bukan hanya "apa".`,
+  }
+}
+
 // Update bloom_profiles secara live (per-jawaban) — fire-and-forget, tanpa increment session_count
 export async function updateLiveBloomSnapshot(sessionId) {
   if (isSupabaseConfigured) {
@@ -554,6 +572,25 @@ export async function getClassStats(workspaceId) {
   return { aiThisWeek, levelUp: levelUpPct, attention, avgLevel: avg }
 }
 
+// Pola kesalahan/miskonsepsi per topik (guru — Modul 5): agregasi session_answers
+// di mana bloom_chosen < bloom_target, dikelompokkan per topik.
+export async function getMisconceptions(workspaceId) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from('session_answers')
+      .select('bloom_chosen, bloom_target, sessions!inner(workspace_id, topic)')
+      .eq('sessions.workspace_id', workspaceId)
+    if (error) throw error
+    return summarizeMisconceptions(data.map((a) => ({ ...a, topic: a.sessions.topic })))
+  }
+  const db = loadDB()
+  const topicOf = new Map(db.sessions.filter((s) => s.workspace_id === workspaceId).map((s) => [s.id, s.topic]))
+  const answers = db.session_answers
+    .filter((a) => topicOf.has(a.session_id))
+    .map((a) => ({ ...a, topic: topicOf.get(a.session_id) }))
+  return summarizeMisconceptions(answers)
+}
+
 // ---------------------------------------------------------------------------
 // VARK LEARNING STYLE
 // ---------------------------------------------------------------------------
@@ -637,6 +674,24 @@ export async function submitProject({ workspaceId, userId, topic, fileName, file
   db.project_submissions.push(submission)
   saveDB(db)
   return submission
+}
+
+// Guru meninjau & memberi nilai laporan proyek (Modul 6).
+export async function reviewProjectSubmission(id, { score, teacherFeedback }) {
+  const patch = { score, teacher_feedback: teacherFeedback, reviewed_at: new Date().toISOString() }
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from('project_submissions').update(patch).eq('id', id).select().single()
+    if (error) throw error
+    return data
+  }
+  const db = loadDB()
+  const list = db.project_submissions || []
+  const i = list.findIndex((s) => s.id === id)
+  if (i < 0) return null
+  list[i] = { ...list[i], ...patch }
+  saveDB(db)
+  return list[i]
 }
 
 export async function getProjectSubmissions(workspaceId, topic) {

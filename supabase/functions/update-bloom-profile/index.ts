@@ -3,6 +3,10 @@
 // Aksi  : baca session_answers sesi itu, hitung mastery per level (blend 60/40
 //         dengan profil lama), tentukan current_level & trend, upsert bloom_profiles.
 // Output: { profile }
+//
+// Hiperparameter (blend 0.6/0.4, ambang 60) HARUS sinkron dengan
+// src/lib/config.js (ADAPTIVE_CONFIG) — Deno tidak bisa import file src/,
+// jadi nilainya diduplikasi manual di sini. Ubah salah satu → ubah keduanya.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 

@@ -1,7 +1,8 @@
 // Uji unit mesin rekomendasi (Modul 4) — dua skenario siswa (celah pondasi
 // vs fondasi kuat) dan empat ambang strategi kelas untuk guru.
 import { describe, it, expect } from 'vitest'
-import { buildStudentRecs, pickClassStrategy } from '../recs'
+import { buildStudentRecs, pickClassStrategy, findSpacedReviewTopics } from '../recs'
+import { ADAPTIVE_CONFIG } from '../config'
 
 describe('buildStudentRecs — rekomendasi personal siswa', () => {
   it('profil kosong → tanpa rekomendasi', () => {
@@ -64,5 +65,30 @@ describe('pickClassStrategy — strategi mengajar dari distribusi kelas', () => 
 
   it('≥ 40% siswa di C5–C6 → Project Exhibition', () => {
     expect(pickClassStrategy(profilesAt(2, 2, 5, 5, 6))).toBe('exhibition')
+  })
+})
+
+describe('findSpacedReviewTopics — topik belum tuntas & belum disentuh sekian hari', () => {
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString()
+  const days = ADAPTIVE_CONFIG.SPACED_REVIEW_DAYS
+
+  it('topik yang sudah C6 (tuntas) tidak pernah direview ulang', () => {
+    const profiles = [{ topic: 'Tuntas', current_level: 6, updated_at: daysAgo(days + 5) }]
+    expect(findSpacedReviewTopics(profiles)).toEqual([])
+  })
+
+  it('topik belum tuntas tapi baru disentuh (< ambang hari) tidak masuk', () => {
+    const profiles = [{ topic: 'Baru', current_level: 3, updated_at: daysAgo(days - 1) }]
+    expect(findSpacedReviewTopics(profiles)).toEqual([])
+  })
+
+  it('topik belum tuntas & sudah lewat ambang hari → masuk, diurutkan dari paling lama', () => {
+    const profiles = [
+      { topic: 'Lama', current_level: 2, updated_at: daysAgo(days + 10) },
+      { topic: 'Sedang', current_level: 4, updated_at: daysAgo(days + 2) },
+    ]
+    const result = findSpacedReviewTopics(profiles)
+    expect(result.map((r) => r.topic)).toEqual(['Lama', 'Sedang'])
+    expect(result[0].daysSince).toBeGreaterThanOrEqual(days + 10)
   })
 })

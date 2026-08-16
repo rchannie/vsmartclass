@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react'
-import { Upload, FileText, CheckCircle2, Loader2, AlertCircle, Lock } from 'lucide-react'
+import { Upload, FileText, CheckCircle2, Loader2, AlertCircle, Lock, Check } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
-import { useQuestions } from '../../hooks/useClassData'
+import { useQuestions, useProjectSubmissions } from '../../hooks/useClassData'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import * as api from '../../lib/api'
+import Panel from '../../components/ui/Panel'
 
 const MAX_SIZE_MB = 10
 const ACCEPTED = '.pdf,.doc,.docx'
@@ -14,6 +15,8 @@ export default function ProjectSubmit() {
   const { active } = useActiveWorkspace(user?.id)
   const { data: questions = [] } = useQuestions(active?.id, { publishedOnly: true })
   const { data: myProfiles = [], isLoading: loadingProfiles } = useMyBloomProfiles(user?.id)
+  // RLS "projects read" hanya mengizinkan siswa baca barisnya sendiri — aman dipanggil di sini.
+  const { data: mySubmissions = [] } = useProjectSubmissions(active?.id)
 
   // Syarat Modul 6: hanya siswa yang sudah benar-benar mencapai C6 (Mencipta)
   // di salah satu topik — bukti telah menyelesaikan seluruh tugas adaptif di
@@ -121,6 +124,30 @@ export default function ProjectSubmit() {
           Unggah laporan proyekmu sebagai bukti penguasaan C6 — Mencipta.
         </p>
       </header>
+
+      {mySubmissions.length > 0 && (
+        <Panel title="Riwayat pengumpulanmu" subtitle="Status tinjauan & nilai dari gurumu">
+          <div className="space-y-2">
+            {mySubmissions.map((sub) => (
+              <div key={sub.id} className="flex items-center justify-between gap-3 rounded-md border border-line p-3 text-sm">
+                <div className="min-w-0">
+                  <p className="font-bold">{sub.topic}</p>
+                  <p className="text-xs text-muted">
+                    {new Date(sub.submitted_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                {sub.reviewed_at ? (
+                  <span className="inline-flex items-center gap-1 rounded-pill bg-[color:var(--c3)]/10 px-2.5 py-1 text-xs font-extrabold text-[color:var(--c3)]">
+                    <Check size={11} /> Nilai: {sub.score ?? '—'}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted">Menunggu tinjauan guru</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <form onSubmit={handleSubmit} className="card space-y-5 p-6">
         {/* Topik */}

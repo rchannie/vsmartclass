@@ -1,7 +1,7 @@
 // Uji unit fondasi Taksonomi Bloom (Modul 3) — sesuai aturan di proposal:
 // streak rule adaptasi, tier kesulitan, dan status siswa.
 import { describe, it, expect } from 'vitest'
-import { levelOf, codeOf, adaptNext, difficultyTierOf, statusOf } from '../bloom'
+import { levelOf, codeOf, adaptNext, difficultyTierOf, statusOf, summarizeMisconceptions } from '../bloom'
 
 describe('levelOf / codeOf', () => {
   it('mengubah kode Bloom menjadi angka level', () => {
@@ -85,5 +85,44 @@ describe('statusOf — flag intervensi guru (Modul 5)', () => {
   it('belum 3 sesi atau tren naik → on-track', () => {
     expect(statusOf({ current_level: 3, trend: 0, session_count: 2 })).toBe('on-track')
     expect(statusOf({ current_level: 2, trend: 1, session_count: 6 })).toBe('on-track')
+  })
+})
+
+describe('summarizeMisconceptions — pola kesalahan per topik (Modul 5)', () => {
+  it('tidak ada input → array kosong', () => {
+    expect(summarizeMisconceptions([])).toEqual([])
+  })
+
+  it('jawaban di/atas target tidak dihitung sebagai miskonsepsi', () => {
+    const answers = [
+      { topic: 'SPL', bloom_target: 'C3', bloom_chosen: 'C3' },
+      { topic: 'SPL', bloom_target: 'C3', bloom_chosen: 'C4' },
+    ]
+    expect(summarizeMisconceptions(answers)).toEqual([])
+  })
+
+  it('jawaban di bawah target dihitung sebagai miss, rate = miss/total', () => {
+    const answers = [
+      { topic: 'SPL', bloom_target: 'C4', bloom_chosen: 'C2' },
+      { topic: 'SPL', bloom_target: 'C4', bloom_chosen: 'C2' },
+      { topic: 'SPL', bloom_target: 'C3', bloom_chosen: 'C3' },
+    ]
+    const [result] = summarizeMisconceptions(answers)
+    expect(result.topic).toBe('SPL')
+    expect(result.misses).toBe(2)
+    expect(result.total).toBe(3)
+    expect(result.rate).toBe(67)
+    expect(result.weakestTarget).toBe('C4')
+  })
+
+  it('diperingkat menurun berdasarkan rate, topik tanpa miss tidak muncul', () => {
+    const answers = [
+      { topic: 'A', bloom_target: 'C4', bloom_chosen: 'C1' }, // 1/1 = 100%
+      { topic: 'B', bloom_target: 'C4', bloom_chosen: 'C1' },
+      { topic: 'B', bloom_target: 'C4', bloom_chosen: 'C4' }, // 1/2 = 50%
+      { topic: 'C', bloom_target: 'C2', bloom_chosen: 'C2' }, // tidak ada miss
+    ]
+    const result = summarizeMisconceptions(answers)
+    expect(result.map((r) => r.topic)).toEqual(['A', 'B'])
   })
 })

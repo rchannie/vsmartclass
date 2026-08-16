@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Sparkles, TrendingUp, AlertTriangle, Gauge, MessageCircle } from 'lucide-react'
+import { Sparkles, TrendingUp, AlertTriangle, Gauge, MessageCircle, Download, FileDown, AlertOctagon } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
-import { useClassStats, useSessions } from '../../hooks/useClassData'
+import { useClassStats, useSessions, useMisconceptions } from '../../hooks/useClassData'
 import { useClassBloomProfiles } from '../../hooks/useBloomProfile'
 import { useRealtimeBloom } from '../../hooks/useRealtime'
 import { BLOOM, codeOf, statusOf } from '../../lib/bloom'
+import { exportClassCSV, exportClassPDF } from '../../lib/export'
 import Panel from '../../components/ui/Panel'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
@@ -24,7 +25,9 @@ export default function TeacherAnalytics() {
   const { data: stats } = useClassStats(active?.id)
   const { data: profiles = [] } = useClassBloomProfiles(active?.id)
   const { data: sessions = [] } = useSessions(active?.id)
+  const { data: misconceptions = [] } = useMisconceptions(active?.id)
   useRealtimeBloom(active?.id) // heatmap & stat cards live saat siswa menyelesaikan sesi
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const students = useMemo(() => {
     const seen = new Map()
@@ -97,11 +100,35 @@ export default function TeacherAnalytics() {
           <h1 className="text-2xl">Bloom Analytics</h1>
           <p className="mt-1 text-sm text-muted">Peta kognitif kelas — diperbarui langsung saat siswa menyelesaikan sesi.</p>
         </div>
-        {workspaces.length > 0 && (
-          <select className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
-            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {workspaces.length > 0 && (
+            <select className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
+              {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          )}
+          {active && profiles.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="btn-outline !px-3 !py-1.5 text-xs"
+                onClick={() => exportClassCSV(active.name, profiles)}
+              >
+                <Download size={13} /> CSV
+              </button>
+              <button
+                type="button"
+                disabled={exportingPdf}
+                className="btn-outline !px-3 !py-1.5 text-xs disabled:opacity-50"
+                onClick={async () => {
+                  setExportingPdf(true)
+                  try { await exportClassPDF(active.name, profiles, stats) } finally { setExportingPdf(false) }
+                }}
+              >
+                <FileDown size={13} /> {exportingPdf ? 'Menyiapkan…' : 'PDF'}
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -118,6 +145,33 @@ export default function TeacherAnalytics() {
       >
         <ClassHeatmap rows={heatmapRows} />
       </Panel>
+
+      {misconceptions.length > 0 && (
+        <Panel
+          title="Pola Kesalahan &amp; Miskonsepsi"
+          subtitle="Topik dengan jawaban paling sering di bawah target — kandidat intervensi guru"
+        >
+          <div className="space-y-2">
+            {misconceptions.slice(0, 5).map((m) => (
+              <div key={m.topic} className="flex items-center justify-between gap-3 rounded-md border border-line p-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertOctagon size={15} className="shrink-0 text-[color:var(--c6)]" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold truncate">{m.topic}</p>
+                    <p className="text-xs text-muted">
+                      {m.misses} dari {m.total} jawaban di bawah target
+                      {m.weakestTarget && <> · paling sering meleset di target <BloomChip code={m.weakestTarget} /></>}
+                    </p>
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-pill bg-[color:var(--c6)]/10 px-2.5 py-1 text-xs font-extrabold text-[color:var(--c6)]">
+                  {m.rate}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Trajektori kognitif siswa" subtitle="Level Bloom per sesi" action={students.length > 0 && studentSelector}>

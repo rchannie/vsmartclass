@@ -2,6 +2,7 @@
 // pada Developer Prompt. Dipakai otomatis saat env Supabase kosong.
 
 import { BLOOM, BLOOM_LEVELS, codeOf, levelOf } from './bloom'
+import { ADAPTIVE_CONFIG } from './config'
 
 const DB_KEY = 'vsc-demo-db-v1'
 const SESSION_KEY = 'vsc-demo-session-v1'
@@ -342,11 +343,13 @@ export function computeProfileUpdate(oldProfile, answers) {
       answers.filter((a) => levelOf(a.bloom_chosen) >= idx + 1).length / counts
     const key = code.toLowerCase()
     const prev = oldProfile?.[key] ?? 0
-    next[key] = Math.round(prev * 0.6 + evidence * 100 * 0.4)
+    next[key] = Math.round(
+      prev * ADAPTIVE_CONFIG.MASTERY_BLEND_OLD_WEIGHT + evidence * 100 * ADAPTIVE_CONFIG.MASTERY_BLEND_NEW_WEIGHT,
+    )
   })
   let level = 1
   BLOOM_LEVELS.forEach((code, idx) => {
-    if (next[code.toLowerCase()] >= 60) level = idx + 1
+    if (next[code.toLowerCase()] >= ADAPTIVE_CONFIG.MASTERY_THRESHOLD) level = idx + 1
   })
   const prevLevel = oldProfile?.current_level ?? 1
   next.current_level = level

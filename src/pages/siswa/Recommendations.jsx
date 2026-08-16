@@ -1,11 +1,12 @@
  import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, Rocket, Play, ExternalLink, HelpCircle, Loader2 } from 'lucide-react'
+import { Clock, Rocket, Play, ExternalLink, HelpCircle, Loader2, History, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
-import { BLOOM, softBg } from '../../lib/bloom'
+import { BLOOM, codeOf, softBg } from '../../lib/bloom'
+import { findSpacedReviewTopics } from '../../lib/recs'
 import * as api from '../../lib/api'
 import BloomBadge from '../../components/bloom/BloomBadge'
 import VarkSurvey, { VARK_META } from '../../components/bloom/VarkSurvey'
@@ -58,6 +59,7 @@ export default function StudentRecs() {
 
   const displayWeakest = weakest || 'C1'
   const varkMeta = varkStyle ? VARK_META[varkStyle] : null
+  const spacedReview = findSpacedReviewTopics(myProfiles)
 
   return (
     <div className="space-y-6">
@@ -87,6 +89,33 @@ export default function StudentRecs() {
           )}
         </div>
       </header>
+
+      {/* Spaced review — topik yang belum tuntas & belum disentuh sekian hari */}
+      {spacedReview.length > 0 && (
+        <div className="card space-y-2.5 p-5" style={{ borderColor: 'var(--c4)' }}>
+          <div className="flex items-center gap-2">
+            <History size={16} style={{ color: BLOOM.C4.color }} />
+            <h3 className="text-sm font-extrabold">Waktunya review</h3>
+          </div>
+          <p className="text-xs text-muted">
+            Topik ini belum kamu sentuh beberapa hari dan levelnya belum tuntas — jaga supaya tidak luntur.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {spacedReview.map((p) => (
+              <Link
+                key={p.topic}
+                to={`/siswa/sesi/${encodeURIComponent(p.topic)}`}
+                className="inline-flex items-center gap-2 rounded-pill border border-line bg-bg px-3 py-1.5 text-xs font-bold hover:border-accent"
+              >
+                <BloomBadge code={codeOf(p.current_level)} size="sm" />
+                {p.topic}
+                <span className="text-muted">· {p.daysSince} hari lalu</span>
+                <ArrowRight size={11} />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* VARK survey — tampil jika belum ada gaya belajar tersimpan */}
       {varkLoaded && !varkStyle && (

@@ -4,6 +4,7 @@
 // Secrets: GEMINI_API_KEY
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkRateLimit, getUserId, rateLimitResponse } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,15 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { subject, topic, workspaceId } = body
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const createdBy = await getUserId(req, supabase)
+
+    const rate = await checkRateLimit(supabase, createdBy)
+    if (!rate.allowed) return rateLimitResponse(rate.retryAfterMs!, corsHeaders)
+
     const geminiRes = await fetch(`${GEMINI_URL}?key=${Deno.env.get('GEMINI_API_KEY')}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,19 +83,6 @@ Deno.serve(async (req) => {
     const items = (parsed.questions ?? []) as Array<Record<string, unknown>>
 
     // Simpan ke tabel questions (published=false) dengan service role
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
-
-    // createdBy: pakai user dari JWT bila ada
-    const auth = req.headers.get('Authorization')?.replace('Bearer ', '')
-    let createdBy: string | null = null
-    if (auth) {
-      const { data } = await supabase.auth.getUser(auth)
-      createdBy = data.user?.id ?? null
-    }
-
     const rows = items.map((q) => ({
       workspace_id: workspaceId,
       created_by: createdBy,

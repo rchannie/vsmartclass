@@ -1,6 +1,8 @@
 // Konstanta Taksonomi Bloom Revisi (Anderson & Krathwohl) — sumber tunggal
 // untuk nama, warna (via CSS token), deskripsi, dan mapping strategi mengajar.
 
+import { ADAPTIVE_CONFIG } from './config'
+
 export const BLOOM_LEVELS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6']
 
 export const BLOOM = {
@@ -66,10 +68,11 @@ export function adaptNext(chosenCode, targetCode, streak) {
   const target = levelOf(targetCode)
   const hit = chosen >= target
   const newStreak = hit ? streak + 1 : 0
-  const nextLevel = newStreak >= 2 ? Math.min(6, target + 1) : hit ? target : chosen
+  const needed = ADAPTIVE_CONFIG.STREAK_TO_LEVEL_UP
+  const nextLevel = newStreak >= needed ? Math.min(6, target + 1) : hit ? target : chosen
   return {
     nextTarget: codeOf(nextLevel),
-    streak: newStreak >= 2 ? 0 : newStreak,
+    streak: newStreak >= needed ? 0 : newStreak,
     direction: Math.sign(nextLevel - target),
   }
 }
@@ -148,4 +151,34 @@ export function statusOf(profile) {
   if (profile.current_level <= 1 || profile.trend < 0) return 'attention'
   if (profile.trend === 0 && profile.session_count >= 3) return 'plateau'
   return 'on-track'
+}
+
+// Pola kesalahan/miskonsepsi per topik (guru — Modul 5): jawaban yang levelnya
+// di BAWAH target soal menandakan siswa belum benar-benar menguasai level yang
+// ditargetkan, dikelompokkan & diperingkat per topik agar guru tahu di mana
+// perlu intervensi. answers: [{ topic, bloom_target, bloom_chosen }]
+export function summarizeMisconceptions(answers = []) {
+  const byTopic = new Map()
+  const ensure = (topic) => {
+    if (!byTopic.has(topic)) byTopic.set(topic, { topic, misses: 0, total: 0, levelCounts: {} })
+    return byTopic.get(topic)
+  }
+  answers.forEach((a) => {
+    if (!a.topic) return
+    const t = ensure(a.topic)
+    t.total += 1
+    if (!a.bloom_target || !a.bloom_chosen) return
+    const gap = levelOf(a.bloom_target) - levelOf(a.bloom_chosen)
+    if (gap <= 0) return // jawaban di/atas target → bukan miskonsepsi
+    t.misses += 1
+    t.levelCounts[a.bloom_target] = (t.levelCounts[a.bloom_target] || 0) + 1
+  })
+  return [...byTopic.values()]
+    .filter((t) => t.misses > 0)
+    .map((t) => ({
+      ...t,
+      rate: t.total ? Math.round((t.misses / t.total) * 100) : 0,
+      weakestTarget: Object.entries(t.levelCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || null,
+    }))
+    .sort((a, b) => b.rate - a.rate)
 }

@@ -5,7 +5,7 @@ import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import { useSession, SESSION_LENGTH } from '../../stores/session'
-import { BLOOM, BLOOM_LEVELS, codeOf, softBg, SCAFFOLD_TIPS } from '../../lib/bloom'
+import { BLOOM, BLOOM_LEVELS, codeOf, levelOf, softBg, SCAFFOLD_TIPS } from '../../lib/bloom'
 import BloomBadge from '../../components/bloom/BloomBadge'
 import ProgressDots from '../../components/ui/ProgressDots'
 import AIThinking from '../../components/ui/AIThinking'
@@ -46,7 +46,7 @@ export default function StudentSession() {
         <button type="button" onClick={() => navigate('/siswa/beranda')} className="btn-ghost !px-2 text-xs">
           <ArrowLeft size={14} /> Keluar sesi
         </button>
-        {(s.phase === 'question' || s.phase === 'feedback') && (
+        {(s.phase === 'question' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && (
           <ProgressDots total={SESSION_LENGTH} current={s.currentIdx} />
         )}
       </header>
@@ -98,7 +98,7 @@ export default function StudentSession() {
       )}
 
       {/* ——— SOAL & FEEDBACK ——— */}
-      {(s.phase === 'question' || s.phase === 'feedback' || s.phase === 'evaluating') && <QuestionView s={s} />}
+      {(s.phase === 'question' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && <QuestionView s={s} />}
 
       {/* ——— RINGKASAN ——— */}
       {s.phase === 'done' && <Summary s={s} topic={topic} isDiagnostic={s.isDiagnostic} />}
@@ -138,7 +138,8 @@ function AdaptInfo({ adaptation }) {
 function QuestionView({ s }) {
   const q = s.items[s.currentIdx]
   if (!q) return null
-  const isFeedback  = s.phase === 'feedback'
+  const isFeedback   = s.phase === 'feedback'
+  const isJustifying = s.phase === 'justifying'
   const isEvaluating = s.phase === 'evaluating'
   const isLast      = s.answers.length === SESSION_LENGTH - 1
   const isEssay     = q.type === 'essay'
@@ -174,17 +175,18 @@ function QuestionView({ s }) {
               <div className="mt-4 space-y-2.5">
                 {(q.options || []).map((opt) => {
                   const picked = s.picked?.id === opt.id
+                  const locked = isFeedback || isJustifying || isEvaluating
                   return (
                     <button
                       key={opt.id}
                       type="button"
-                      disabled={isFeedback}
+                      disabled={locked}
                       onClick={() => s.choose(opt)}
                       className="w-full rounded-md border-2 p-3.5 text-left transition-all disabled:cursor-default"
                       style={{
                         borderColor: picked ? 'var(--accent)' : 'var(--border)',
                         background: picked ? 'color-mix(in srgb, var(--accent) 10%, var(--surface))' : 'var(--surface)',
-                        opacity: isFeedback && !picked ? 0.45 : 1,
+                        opacity: locked && !picked ? 0.45 : 1,
                       }}
                     >
                       <span className="flex items-start gap-3">
@@ -198,7 +200,7 @@ function QuestionView({ s }) {
               <p className="mt-4 text-center text-[11px] text-muted">
                 Tidak ada jawaban salah — pilih yang paling menggambarkan caramu berpikir.
               </p>
-              {!isFeedback && (
+              {s.phase === 'question' && (
                 <button
                   type="button"
                   disabled={!s.picked}
@@ -207,6 +209,10 @@ function QuestionView({ s }) {
                 >
                   <Send size={15} /> Kirim jawaban
                 </button>
+              )}
+              {/* RF-11: opsi bernalar C4+ mewajibkan alasan singkat sebelum feedback muncul */}
+              {(isJustifying || isEvaluating) && (
+                <JustificationBlock s={s} isEvaluating={isEvaluating} />
               )}
             </>
           )}
@@ -222,10 +228,62 @@ function QuestionView({ s }) {
           </div>
           {s.picked.indicator && <p className="mt-2 text-xs text-muted">{s.picked.indicator}</p>}
           <p className="mt-2 text-sm leading-relaxed">{s.picked.feedback}</p>
+          {s.justificationResult && (
+            <div
+              className={`mt-3 rounded-md border px-3 py-2.5 text-xs leading-relaxed ${
+                s.justificationResult.verified
+                  ? 'border-[color:var(--c3)]/30 bg-[color:var(--c3)]/5'
+                  : 'border-[color:var(--c6)]/30 bg-[color:var(--c6)]/5'
+              }`}
+            >
+              <p className="font-bold">
+                {s.justificationResult.verified
+                  ? 'Alasanmu menunjukkan penalaran ini dengan jelas.'
+                  : `Dicatat sebagai ${codeOf(levelOf(s.picked.bloom) - 1)} — alasanmu belum sepenuhnya menunjukkan penalaran ${s.picked.bloom}.`}
+              </p>
+              {s.justificationResult.feedback && <p className="mt-1">{s.justificationResult.feedback}</p>}
+            </div>
+          )}
           <button type="button" onClick={s.next} className="btn-primary mt-5 w-full">
             {isLast ? 'Selesaikan sesi' : 'Soal berikutnya'} <ArrowRight size={15} />
           </button>
         </FeedbackModal>
+      )}
+    </div>
+  )
+}
+
+// RF-11: alasan singkat wajib untuk opsi bernalar C4+ — dievaluasi AI sebelum feedback muncul.
+function JustificationBlock({ s, isEvaluating }) {
+  const [text, setText] = useState('')
+  return (
+    <div className="mt-4 space-y-3 rounded-md border border-dashed border-line p-3.5">
+      <p className="flex items-start gap-2 text-xs leading-relaxed">
+        <Lightbulb size={13} className="mt-0.5 shrink-0 text-[color:var(--c4)]" />
+        <span>
+          Opsi ini menunjukkan penalaran <span className="font-bold">{s.picked.bloom}</span> — tuliskan alasan
+          singkat kenapa kamu memilihnya, supaya levelmu benar-benar terkonfirmasi.
+        </span>
+      </p>
+      <textarea
+        className="input min-h-[90px] text-sm"
+        placeholder="Jelaskan alasanmu memilih opsi ini…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={isEvaluating}
+        aria-label="Alasan memilih opsi ini"
+      />
+      {isEvaluating ? (
+        <p className="text-center text-xs text-muted">AI sedang menilai alasanmu…</p>
+      ) : (
+        <button
+          type="button"
+          disabled={text.trim().length < 10}
+          onClick={() => s.submitJustification(text)}
+          className="btn-primary w-full disabled:opacity-40"
+        >
+          Kirim alasan <ArrowRight size={15} />
+        </button>
       )}
     </div>
   )

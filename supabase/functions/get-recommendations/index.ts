@@ -6,6 +6,7 @@
 // (fallback template bila Gemini gagal).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkRateLimit, getUserId } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,12 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
+
+    // Rate limit dicek dari JWT (bukan body.userId, yang bisa dipalsukan klien).
+    // Bila terlampaui, JANGAN gagalkan request — langsung pakai FALLBACK template
+    // (fungsi ini memang sudah dirancang untuk degradasi anggun ke template).
+    const jwtUserId = await getUserId(req, supabase)
+    const rate = await checkRateLimit(supabase, jwtUserId)
 
     const { data: profile } = await supabase
       .from('bloom_profiles').select('*')
@@ -62,6 +69,7 @@ Deno.serve(async (req) => {
 
     let studentRecs = FALLBACK
     try {
+      if (!rate.allowed) throw new Error('rate limited — pakai fallback')
       const prompt = `
 Kamu konselor belajar berbasis Taksonomi Bloom. Profil siswa (mastery 0-100):
 C1=${vals[0]} C2=${vals[1]} C3=${vals[2]} C4=${vals[3]} C5=${vals[4]} C6=${vals[5]}.

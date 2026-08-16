@@ -56,3 +56,12 @@ export function useProjectSubmissions(workspaceId) {
     enabled: Boolean(workspaceId),
   })
 }
+
+// Pola kesalahan/miskonsepsi per topik (guru — Modul 5)
+export function useMisconceptions(workspaceId) {
+  return useQuery({
+    queryKey: ['misconceptions', workspaceId],
+    queryFn: () => api.getMisconceptions(workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+}

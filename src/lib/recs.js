@@ -3,6 +3,7 @@
 // dijalankan lokal dengan template per level.
 
 import { BLOOM_LEVELS, codeOf, levelOf } from './bloom'
+import { ADAPTIVE_CONFIG } from './config'
 
 const ACTIVITIES = {
   C1: {
@@ -131,6 +132,17 @@ export function buildStudentRecs(profile) {
         { bloom: next, kind: 'Naik level', ...ACTIVITIES[next].strengthen },
       ]
   return { weakest, current, next, recs }
+}
+
+// Spaced review (Modul 3/4): topik yang belum tuntas (current_level < 6) dan
+// belum disentuh selama SPACED_REVIEW_DAYS hari diprioritaskan untuk diulang,
+// supaya penguasaan level lemah tidak luruh seiring waktu.
+export function findSpacedReviewTopics(profiles = [], now = Date.now()) {
+  return profiles
+    .filter((p) => (p.current_level || 1) < 6 && p.updated_at)
+    .map((p) => ({ ...p, daysSince: Math.floor((now - new Date(p.updated_at).getTime()) / 86400000) }))
+    .filter((p) => p.daysSince >= ADAPTIVE_CONFIG.SPACED_REVIEW_DAYS)
+    .sort((a, b) => b.daysSince - a.daysSince)
 }
 
 // Strategi kelas untuk guru — pilih berdasarkan median level kelas

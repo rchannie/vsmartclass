@@ -3,6 +3,9 @@
 // Output: { bloom_level_achieved, feedback, followUpPrompt }
 // Secrets: GEMINI_API_KEY
 
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkRateLimit, getUserId, rateLimitResponse } from '../_shared/rateLimit.ts'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -53,6 +56,14 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const userId = await getUserId(req, supabase)
+    const rate = await checkRateLimit(supabase, userId)
+    if (!rate.allowed) return rateLimitResponse(rate.retryAfterMs!, corsHeaders)
 
     const geminiRes = await fetch(`${GEMINI_URL}?key=${Deno.env.get('GEMINI_API_KEY')}`, {
       method: 'POST',
