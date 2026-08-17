@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Playwright / coverage
+test-results/
+playwright-report/
+coverage/
+
 # Aset demo lomba (file dummy, tidak relevan untuk codebase)
 demo-assets/
 
