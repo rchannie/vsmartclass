@@ -366,14 +366,17 @@ export async function deleteQuestion(id) {
 // ---------------------------------------------------------------------------
 
 export async function generateQuestions(params) {
+  const requestedCount = Math.min(15, Math.max(1, Math.floor(Number(params.count) || 1)))
   if (isSupabaseConfigured) {
     const data = await invokeEdge('generate-questions', params)
     if (params.workspaceId) notifyQuestionsUpdated(params.workspaceId)
-    return data.questions  // already persisted by Edge Function
+    // Gemini kadang mengembalikan lebih dari yang diminta — potong persis sesuai permintaan
+    const questions = (data.questions || []).slice(0, requestedCount)
+    return questions
   }
   // Simulasi latensi AI agar shimmer terlihat (UX rule #5)
   await delay(1800)
-  const questions = demoGenerateQuestions(params)
+  const questions = demoGenerateQuestions({ ...params, count: requestedCount })
   const db = loadDB()
   db.questions.push(...questions)
   saveDB(db)
