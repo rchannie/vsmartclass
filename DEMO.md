@@ -1,6 +1,6 @@
 # Panduan Demo & Testing — VSmartClass
 
-Checklist untuk merekam video demo LIDM dan menjalankan pengujian.
+Checklist untuk merekam video demo GEMASTIK XIX dan menjalankan pengujian.
 
 ## 1. Menjalankan Aplikasi
 
@@ -24,22 +24,29 @@ langsung terisi.
 ## 2. Menjalankan Pengujian (untuk adegan testing di video)
 
 ```bash
-npm test             # 32 unit test — sekali jalan, output ringkas
+npm test             # 89 unit/integration/component test — sekali jalan
 npm run test:watch   # mode watch (live)
+npm run test:e2e     # 11 E2E (Playwright) — termasuk regresi aksesibilitas
 npm run lint         # ESLint bersih
 npm run build        # build produksi
 ```
 
-Cakupan test (`src/lib/__tests__/`) — logika inti sesuai proposal:
+Rincian cakupan test & angka coverage: **[`CHANGES.md`](CHANGES.md) §3**.
+Ringkasan singkat (`src/lib/__tests__/`, `src/stores/__tests__/`) — logika
+inti sesuai proposal:
 
 - **bloom.test.js** — aturan adaptasi *consecutive-success streak* (naik butuh
   2 jawaban berturut, turun seketika, batas C6), tier kesulitan
-  (Dasar/Menengah/Lanjut), status siswa (on-track/plateau/perlu perhatian).
+  (Dasar/Menengah/Lanjut), status siswa (on-track/plateau/perlu perhatian),
+  agregasi pola kesalahan/miskonsepsi per topik.
 - **profile.test.js** — *mastery blend 60/40* akhir sesi, ambang
   `current_level ≥ 60`, tren, hitungan sesi, anti-lonjakan profil.
 - **recs.test.js** — rekomendasi siswa Skenario A (celah pondasi / ZPD) vs
-  Skenario B (fondasi kuat), serta 4 ambang strategi kelas guru
-  (Direct Instruction → Cooperative → PBL → Exhibition).
+  Skenario B (fondasi kuat), 4 ambang strategi kelas guru, spaced review.
+- **session.test.js** — state machine sesi adaptif penuh: gerbang justifikasi
+  RF-11, penurunan level saat justifikasi tidak verified, penyelesaian sesi.
+- **integration.demo.test.js** — alur utuh generate → jawab → profil →
+  statistik, termasuk regresi keamanan (opsi tersanitasi sebelum dijawab).
 
 ## 3. Alur Rekaman Video Demo (±5 menit)
 
@@ -72,7 +79,7 @@ Cakupan test (`src/lib/__tests__/`) — logika inti sesuai proposal:
     (realtime di mode Supabase; di mode demo refresh halaman).
 13. Menu **Rekomendasi** guru: distribusi level kelas, breakdown per topik,
     laporan proyek masuk, dan strategi mengajar yang disarankan.
-14. Tutup dengan `npm test` di terminal — 32 test hijau.
+14. Tutup dengan `npm test` di terminal — 89 test hijau.
 
 ## 4. Tips Rekaman
 

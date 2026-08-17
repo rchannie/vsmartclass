@@ -1,7 +1,9 @@
 {
   "name": "vsmartclass",
+  "description": "Sistem evaluasi adaptif dan pemetaan kognitif berbasis Taksonomi Bloom dengan AI — GEMASTIK XIX, divisi Pengembangan Perangkat Lunak.",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
