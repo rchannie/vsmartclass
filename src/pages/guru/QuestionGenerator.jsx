@@ -82,16 +82,16 @@ export default function QuestionGenerator() {
         <Panel title="Parameter soal" subtitle="Atur konteks, AI menyusun soalnya">
           <form onSubmit={generate} className="space-y-4">
             <div>
-              <label className="label">Workspace tujuan</label>
-              <select className="input" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
+              <label className="label" htmlFor="gen-workspace">Workspace tujuan</label>
+              <select id="gen-workspace" className="input" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
                 {workspaces.length === 0 && <option value="">— belum ada workspace —</option>}
                 {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="label">Mata pelajaran</label>
-              <select className="input" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}>
+              <label className="label" htmlFor="gen-subject">Mata pelajaran</label>
+              <select id="gen-subject" className="input" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}>
                 {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
               </select>
               {form.subject === 'Lainnya…' && (
@@ -104,8 +104,9 @@ export default function QuestionGenerator() {
             </div>
 
             <div>
-              <label className="label">Topik</label>
+              <label className="label" htmlFor="gen-topic">Topik</label>
               <input
+                id="gen-topic"
                 className="input" required placeholder="cth. Sistem Persamaan Linear"
                 value={form.topic}
                 onChange={(e) => setForm({ ...form, topic: e.target.value })}
@@ -128,8 +129,9 @@ export default function QuestionGenerator() {
             </div>
 
             <div>
-              <label className="label">Jumlah soal: <span className="font-mono text-accent">{form.count}</span></label>
+              <label className="label" htmlFor="gen-count">Jumlah soal: <span className="font-mono text-accent">{form.count}</span></label>
               <input
+                id="gen-count"
                 type="range" min="1" max="15" value={form.count}
                 onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
                 className="w-full accent-[var(--accent)]"

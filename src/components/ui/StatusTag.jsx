@@ -12,7 +12,8 @@ export default function StatusTag({ status }) {
   return (
     <span
       className="inline-flex items-center rounded-pill px-2.5 py-1 text-[11px] font-bold"
-      style={{ background: softBg(s.code, 16), color: `var(--${s.code.toLowerCase()})` }}
+      // tint 8% (bukan 16%) agar teks warna Bloom di atasnya tetap >=4.5:1 — WCAG AA
+      style={{ background: softBg(s.code, 8), color: `var(--${s.code.toLowerCase()})` }}
     >
       {s.label}
     </span>

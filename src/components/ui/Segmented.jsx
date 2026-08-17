@@ -13,7 +13,7 @@ export default function Segmented({ options, value, onChange, className = '' }) 
             aria-selected={active}
             onClick={() => onChange(o.value)}
             className={`rounded-pill px-3.5 py-1.5 text-xs font-bold transition-all ${
-              active ? 'bg-accent text-white shadow-sm' : 'text-muted hover:text-ink'
+              active ? 'bg-accent-fill text-white shadow-sm' : 'text-muted hover:text-ink'
             }`}
           >
             {o.label}

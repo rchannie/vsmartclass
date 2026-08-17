@@ -1,7 +1,14 @@
 // Dot progress sesi — dot aktif melebar menjadi batang (ikuti prototipe)
 export default function ProgressDots({ total, current }) {
   return (
-    <div className="flex items-center gap-1.5" aria-label={`Soal ${current + 1} dari ${total}`}>
+    <div
+      className="flex items-center gap-1.5"
+      role="progressbar"
+      aria-label={`Soal ${current + 1} dari ${total}`}
+      aria-valuenow={current + 1}
+      aria-valuemin={1}
+      aria-valuemax={total}
+    >
       {Array.from({ length: total }, (_, i) => (
         <span
           key={i}

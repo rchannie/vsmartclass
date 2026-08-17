@@ -9,7 +9,7 @@ export default function QuestionCard({ question, index, action }) {
       <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
         <div className="flex items-start gap-3">
           {typeof index === 'number' && (
-            <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent font-mono text-[11px] font-bold text-white">
+            <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-fill font-mono text-[11px] font-bold text-white">
               {index + 1}
             </span>
           )}

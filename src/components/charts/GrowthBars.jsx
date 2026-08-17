@@ -6,8 +6,21 @@ export default function GrowthBars({ weeks = [], height = 190 }) {
   if (!weeks.length) {
     return <p className="py-6 text-center text-sm text-muted">Belum ada data pertumbuhan.</p>
   }
+
+  // Alt text ringkas untuk pembaca layar (WCAG 1.1.1) — grafik batang dibangun dari <div>, tanpa alternatif teks bawaan.
+  const summary = 'Pertumbuhan kelas per minggu: ' + weeks
+    .map((w) => {
+      const total = BLOOM_LEVELS.reduce((s, c) => s + (w.dist[c] || 0), 0) || 1
+      const parts = BLOOM_LEVELS
+        .filter((c) => w.dist[c])
+        .map((c) => `${c} ${Math.round((w.dist[c] / total) * 100)}%`)
+        .join(', ')
+      return `${w.label}: ${parts || 'tidak ada data'}`
+    })
+    .join('; ')
+
   return (
-    <div className="flex items-end justify-around gap-4" style={{ height }}>
+    <div className="flex items-end justify-around gap-4" style={{ height }} role="img" aria-label={summary}>
       {weeks.map((w) => {
         const total = BLOOM_LEVELS.reduce((s, c) => s + (w.dist[c] || 0), 0) || 1
         return (

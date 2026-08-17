@@ -88,7 +88,7 @@ export default function TeacherAnalytics() {
 
   const selectedProfile = profiles.find((p) => p.user_id === studentId)
   const studentSelector = (
-    <select className="input !w-auto !py-1.5 text-xs font-bold" value={studentId} onChange={(e) => setSelectedStudent(e.target.value)}>
+    <select aria-label="Pilih siswa" className="input !w-auto !py-1.5 text-xs font-bold" value={studentId} onChange={(e) => setSelectedStudent(e.target.value)}>
       {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
     </select>
   )
@@ -102,7 +102,7 @@ export default function TeacherAnalytics() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {workspaces.length > 0 && (
-            <select className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
+            <select aria-label="Pilih kelas" className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
               {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           )}
@@ -204,7 +204,7 @@ export default function TeacherAnalytics() {
               <button
                 type="button"
                 onClick={() => setFilterLevel(null)}
-                className={`rounded-pill px-2.5 py-1 text-[11px] font-bold transition-colors ${filterLevel === null ? 'bg-accent text-white' : 'border border-line text-muted hover:bg-bg'}`}
+                className={`rounded-pill px-2.5 py-1 text-[11px] font-bold transition-colors ${filterLevel === null ? 'bg-accent-fill text-white' : 'border border-line text-muted hover:bg-bg'}`}
               >
                 Semua
               </button>

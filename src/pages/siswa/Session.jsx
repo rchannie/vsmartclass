@@ -120,7 +120,8 @@ function AdaptInfo({ adaptation }) {
     <div className="space-y-1.5">
       <div
         className="fade-up flex items-center gap-2.5 rounded-md p-3.5 text-xs font-bold"
-        style={{ background: softBg(to, 12), color: BLOOM[to].color }}
+        // tint 8% (bukan 12%) agar teks warna Bloom di atasnya tetap >=4.5:1 — WCAG AA
+        style={{ background: softBg(to, 8), color: BLOOM[to].color }}
       >
         <Icon size={16} />
         {text}

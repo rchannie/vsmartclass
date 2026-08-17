@@ -55,7 +55,7 @@ export default function StudentHome() {
               subtitle="Workspace yang kamu ikuti"
               action={
                 workspaces.length > 1 && (
-                  <select className="input !w-auto !py-1.5 text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
+                  <select aria-label="Pilih kelas" className="input !w-auto !py-1.5 text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
                     {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 )

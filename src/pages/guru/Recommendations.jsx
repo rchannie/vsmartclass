@@ -43,7 +43,7 @@ export default function TeacherRecommendations() {
   }, [profiles, submissions])
 
   const workspaceSelector = workspaces.length > 0 && (
-    <select className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
+    <select aria-label="Pilih kelas" className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
       {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
     </select>
   )
@@ -154,7 +154,7 @@ export default function TeacherRecommendations() {
               }}
             >
               {isRec && (
-                <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-pill bg-accent px-2.5 py-1 text-[10px] font-bold text-white">
+                <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-pill bg-accent-fill px-2.5 py-1 text-[10px] font-bold text-white">
                   <BadgeCheck size={12} /> Cocok untuk kelasmu
                 </span>
               )}

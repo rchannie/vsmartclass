@@ -18,8 +18,10 @@ export default function BloomLadder({ currentLevel = 1, className = '' }) {
               borderColor: isCurrent ? b.color : isTarget ? b.color : 'var(--border)',
               borderStyle: isTarget ? 'dashed' : 'solid',
               borderWidth: isCurrent ? 2 : 1,
-              background: isCurrent ? softBg(code, 14) : reached ? softBg(code, 6) : 'var(--surface)',
-              opacity: !isCurrent && !isTarget && !reached ? 0.55 : 1,
+              // tint 8% (bukan 14%) agar teks berwarna b.color di atasnya (baris di bawah) tetap >=4.5:1 — WCAG AA
+              // (level "akan datang" dibedakan lewat border/background saja, bukan opacity — opacity rendah
+              // membuat teks berwarna jatuh di bawah AA berapa pun nilainya yang masih terlihat "pudar")
+              background: isCurrent ? softBg(code, 8) : reached ? softBg(code, 6) : 'var(--surface)',
             }}
           >
             <span

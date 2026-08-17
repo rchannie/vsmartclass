@@ -13,7 +13,8 @@ export default function BloomBadge({ code, size = 'md', soft = false, withName =
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-pill font-mono font-bold leading-none ${SIZES[size]} ${className}`}
-      style={soft ? { background: softBg(code, 16), color: b.color } : { background: b.color, color: '#fff' }}
+      // tint 8% (bukan 16%) agar teks berwarna b.color di atasnya tetap >=4.5:1 — WCAG AA
+      style={soft ? { background: softBg(code, 8), color: b.color } : { background: b.color, color: '#fff' }}
       title={`${b.code} · ${b.name}`}
     >
       {b.code}

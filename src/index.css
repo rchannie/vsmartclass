@@ -24,7 +24,7 @@
       focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent;
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-600 active:scale-[0.98];
+    @apply btn bg-accent-fill text-white hover:bg-accent-fill-600 active:scale-[0.98];
   }
   .btn-outline {
     @apply btn border border-line bg-surface text-ink hover:border-accent hover:text-accent;

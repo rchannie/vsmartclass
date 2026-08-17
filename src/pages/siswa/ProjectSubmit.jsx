@@ -152,11 +152,12 @@ export default function ProjectSubmit() {
       <form onSubmit={handleSubmit} className="card space-y-5 p-6">
         {/* Topik */}
         <div>
-          <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted">
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted" htmlFor="project-topic">
             Topik
           </label>
           {topics.length > 0 ? (
             <select
+              id="project-topic"
               className="input w-full"
               value={selectedTopic}
               onChange={(e) => setTopic(e.target.value)}
@@ -166,6 +167,7 @@ export default function ProjectSubmit() {
             </select>
           ) : (
             <input
+              id="project-topic"
               className="input w-full"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}

@@ -53,7 +53,7 @@ export default function StudentProfile() {
           </p>
         </div>
         {myProfiles.length > 1 && (
-          <select className="input !w-auto text-xs font-bold" value={topic} onChange={(e) => setSelectedTopic(e.target.value)}>
+          <select aria-label="Pilih topik" className="input !w-auto text-xs font-bold" value={topic} onChange={(e) => setSelectedTopic(e.target.value)}>
             {myProfiles.map((x) => <option key={x.topic} value={x.topic}>{x.topic}</option>)}
           </select>
         )}

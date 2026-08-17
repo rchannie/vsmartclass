@@ -37,7 +37,7 @@ export default function QuestionBank() {
   }, [questions, search])
 
   const workspaceSelector = workspaces.length > 0 && (
-    <select className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
+    <select aria-label="Pilih kelas" className="input !w-auto text-xs font-bold" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
       {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
     </select>
   )

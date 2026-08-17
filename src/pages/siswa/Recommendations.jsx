@@ -83,7 +83,7 @@ export default function StudentRecs() {
             </span>
           )}
           {myProfiles.length > 1 && (
-            <select className="input !w-auto text-xs font-bold" value={topic} onChange={(e) => setSelectedTopic(e.target.value)}>
+            <select aria-label="Pilih topik" className="input !w-auto text-xs font-bold" value={topic} onChange={(e) => setSelectedTopic(e.target.value)}>
               {myProfiles.map((x) => <option key={x.topic} value={x.topic}>{x.topic}</option>)}
             </select>
           )}
@@ -139,7 +139,8 @@ export default function StudentRecs() {
       {/* CTA C6 — Tantangan Mencipta */}
       <div
         className="card flex flex-wrap items-center justify-between gap-4 p-6"
-        style={{ background: softBg('C6', 8), borderColor: BLOOM.C6.color }}
+        // tint 6% (bukan 8%) agar teks .text-muted di dalam kartu ini tetap >=4.5:1 — WCAG AA
+        style={{ background: softBg('C6', 6), borderColor: BLOOM.C6.color }}
       >
         <div className="flex items-center gap-3.5">
           <span className="flex h-11 w-11 items-center justify-center rounded-md text-white" style={{ background: BLOOM.C6.color }}>

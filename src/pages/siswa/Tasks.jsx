@@ -81,6 +81,7 @@ export default function StudentTasks() {
         action={
           workspaces.length > 1 && (
             <select
+              aria-label="Pilih kelas"
               className="input !w-auto !py-1.5 text-xs font-bold"
               value={active?.id || ''}
               onChange={(e) => setActive(e.target.value)}

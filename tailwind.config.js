@@ -6,6 +6,7 @@ export default {
     extend: {
       colors: {
         accent: { DEFAULT: 'var(--accent)', 600: 'var(--accent-600)' },
+        'accent-fill': { DEFAULT: 'var(--accent-fill)', 600: 'var(--accent-fill-600)' },
         warm: 'var(--warm)',
         bg: 'var(--bg)',
         surface: 'var(--surface)',

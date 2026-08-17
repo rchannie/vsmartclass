@@ -78,7 +78,7 @@ export default function AppLayout({ role }) {
                   `flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold transition-colors ${
                     locked
                       ? 'text-muted/50 hover:bg-bg hover:text-muted'
-                      : isActive ? 'bg-accent text-white' : 'text-muted hover:bg-bg hover:text-ink'
+                      : isActive ? 'bg-accent-fill text-white' : 'text-muted hover:bg-bg hover:text-ink'
                   }`
                 }
               >

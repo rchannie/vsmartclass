@@ -39,6 +39,7 @@ export default function TeacherDashboard() {
         <div className="flex items-center gap-2">
           {workspaces.length > 0 && (
             <select
+              aria-label="Pilih kelas"
               className="input !w-auto text-xs font-bold"
               value={active?.id || ''}
               onChange={(e) => setActive(e.target.value)}

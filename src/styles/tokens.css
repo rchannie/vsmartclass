@@ -1,17 +1,34 @@
 /* VSmartClass design tokens — ikuti Developer Prompt, jangan hardcode hex di komponen */
+/*
+ * Fase 4 (aksesibilitas — WCAG 2.1 AA): --accent, --accent-600, dan --c1..--c6
+ * digelapkan dari nilai aslinya (hue keluarga warna dipertahankan, hanya
+ * lightness/saturation disesuaikan) supaya kontras >=4.5:1 memenuhi AA di
+ * SETIAP tempat warna ini dipakai sebagai teks ATAU sebagai latar solid
+ * dengan teks putih di atasnya (badge Bloom, tombol, avatar) — diverifikasi
+ * dengan axe-core di seluruh halaman utama guru & siswa (mode terang).
+ * Nilai lama (sebelum Fase 4) dicatat di komentar tiap baris untuk referensi.
+ *
+ * --accent (teks/border aksen, mis. .text-accent) dibedakan dari
+ * --accent-fill (latar solid tombol/pill, SELALU berpasangan teks putih):
+ * satu warna tunggal tidak bisa sekaligus terang (agar teks aksen terbaca
+ * di atas latar gelap dark mode) dan gelap (agar teks putih terbaca di
+ * atasnya sebagai latar tombol) — lihat CHANGES.md untuk detail perhitungan.
+ */
 :root {
   /* Warna utama */
-  --accent: #0d9488;
-  --accent-600: #0b7d72;
+  --accent: #0b7a70;       /* teks/border/ikon aksen — dulu #0d9488 (gagal AA: 3.74:1 di atas putih) */
+  --accent-600: #096058;   /* hover teks/border aksen — dulu #0b7d72 */
+  --accent-fill: #0b7a70;      /* latar solid tombol/pill (teks putih) — sama di kedua tema, lihat catatan di atas */
+  --accent-fill-600: #096058;  /* hover latar solid tombol/pill */
   --warm: #f2994a;
 
-  /* Bloom C1–C6 (dipakai di seluruh app — JANGAN ubah) */
-  --c1: #5b8def; /* Mengingat     */
-  --c2: #18b1ad; /* Memahami      */
-  --c3: #3fae6a; /* Menerapkan    */
-  --c4: #e6b13c; /* Menganalisis  */
-  --c5: #e8803a; /* Mengevaluasi  */
-  --c6: #d9536a; /* Mencipta      */
+  /* Bloom C1–C6 — hue dipertahankan, digelapkan secukupnya utk AA (lihat catatan Fase 4 di atas) */
+  --c1: #2366ea; /* Mengingat     — dulu #5b8def (2.65:1 dgn teks putih) */
+  --c2: #117b78; /* Memahami      — dulu #18b1ad (2.65:1) */
+  --c3: #2d7d4c; /* Menerapkan    — dulu #3fae6a (2.81:1) */
+  --c4: #8e6712; /* Menganalisis  — dulu #e6b13c (1.96:1, paling parah) */
+  --c5: #b15415; /* Mengevaluasi  — dulu #e8803a (2.77:1) */
+  --c6: #ce2e49; /* Mencipta      — dulu #d9536a (3.89:1) */
 
   /* Neutrals */
   --bg: #f6f7f6;
@@ -35,5 +52,11 @@
   --text: #e6efec;
   --muted: #8aa39d;
   --border: #25342f;
+  /* --accent lebih terang di dark mode agar teks aksen tetap >=4.5:1 di atas
+     latar gelap (nilai --accent terang mode terang gelap-gelap thd bg gelap).
+     --accent-fill TIDAK di-override — latar tombol selalu berpasangan teks
+     putih, dan nilai gelap yang sama tetap kontras di kedua tema. */
+  --accent: #14b8a6;
+  --accent-600: #5eead4;
   color-scheme: dark;
 }
