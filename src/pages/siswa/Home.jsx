@@ -20,13 +20,18 @@ export default function StudentHome() {
 
   // Topik = gabungan topik soal terbit + topik yang pernah dikerjakan
   const topics = useMemo(() => {
-    const set = new Set()
-    questions.forEach((q) => q.topic && set.add(q.topic))
-    myProfiles.forEach((p) => p.topic && set.add(p.topic))
-    return [...set]
+    const map = new Map()
+    const add = (t) => {
+      if (!t) return
+      const key = t.trim().toLowerCase()
+      if (!map.has(key)) map.set(key, t.trim())
+    }
+    questions.forEach((q) => add(q.topic))
+    myProfiles.forEach((p) => add(p.topic))
+    return [...map.values()]
   }, [questions, myProfiles])
 
-  const profileOf = (topic) => myProfiles.find((p) => p.topic === topic)
+  const profileOf = (topic) => myProfiles.find((p) => p.topic && p.topic.trim().toLowerCase() === topic.trim().toLowerCase())
   const bestProfile = myProfiles.reduce((a, b) => ((b?.current_level || 0) > (a?.current_level || 0) ? b : a), myProfiles[0])
 
   // Hitung ringkasan status tugas untuk ditampilkan di beranda

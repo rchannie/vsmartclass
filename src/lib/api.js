@@ -284,17 +284,47 @@ export async function getQuestions({ workspaceId, topic, publishedOnly = false }
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
 }
 
+export function sanitizeQuestion(q) {
+  if (!q) return q
+  if (q.type !== 'mcq' || !Array.isArray(q.options)) return q
+  return {
+    ...q,
+    options: q.options.map((opt) => ({
+      id: opt.id,
+      text: opt.text,
+    })),
+  }
+}
+
 // Daftar soal published dengan opsi PG TERSANITASI (tanpa label Bloom) —
 // dipakai halaman siswa yang cuma perlu tahu topik/tipe soal, bukan kunci
 // jawabannya (Home, Tasks, ProjectSubmit). Untuk guru, tetap pakai getQuestions
 // (perlu melihat kunci jawaban untuk meninjau/mengedit).
 export async function getPublicQuestions(workspaceId, topic) {
   if (isSupabaseConfigured) {
-    const { data, error } = await supabase.rpc('get_published_questions', {
-      p_workspace_id: workspaceId, p_topic: topic || null,
-    })
-    if (error) throw error
-    return data
+    // Coba RPC dulu (versi tersanitasi server-side)
+    try {
+      const { data, error } = await supabase.rpc('get_published_questions', {
+        p_workspace_id: workspaceId, p_topic: topic || null,
+      })
+      if (!error && Array.isArray(data)) return data
+    } catch { /* RPC gagal — lanjut fallback */ }
+
+    // Fallback: direct query ke tabel questions (memerlukan RLS policy
+    // "questions read published member" — lihat migration 0011).
+    // Sanitasi opsi MCQ di client-side agar label Bloom tidak bocor.
+    let q = supabase.from('questions').select('id,workspace_id,subject,topic,type,bloom_target,prompt,rubric,options,published,created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('published', true)
+      .order('created_at', { ascending: false })
+    if (topic) q = q.eq('topic', topic)
+    const { data: rows, error: fallbackErr } = await q
+    if (fallbackErr) {
+      console.error('Error fetching public questions:', fallbackErr)
+      return []
+    }
+    // Sanitasi: hapus bloom/indicator/feedback dari opsi PG
+    return (rows || []).map(sanitizeQuestion)
   }
   const rows = await getQuestions({ workspaceId, topic, publishedOnly: true })
   return rows.map(sanitizeQuestion)
