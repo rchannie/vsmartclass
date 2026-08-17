@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { Upload, FileText, CheckCircle2, Loader2, AlertCircle, Lock, Check } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
-import { useQuestions, useProjectSubmissions } from '../../hooks/useClassData'
+import { usePublicQuestions, useProjectSubmissions } from '../../hooks/useClassData'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import * as api from '../../lib/api'
 import Panel from '../../components/ui/Panel'
@@ -13,7 +13,7 @@ const ACCEPTED = '.pdf,.doc,.docx'
 export default function ProjectSubmit() {
   const { user } = useAuth()
   const { active } = useActiveWorkspace(user?.id)
-  const { data: questions = [] } = useQuestions(active?.id, { publishedOnly: true })
+  const { data: questions = [] } = usePublicQuestions(active?.id)
   const { data: myProfiles = [], isLoading: loadingProfiles } = useMyBloomProfiles(user?.id)
   // RLS "projects read" hanya mengizinkan siswa baca barisnya sendiri — aman dipanggil di sini.
   const { data: mySubmissions = [] } = useProjectSubmissions(active?.id)

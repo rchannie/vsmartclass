@@ -27,6 +27,9 @@ Deno.serve(async (req) => {
 
   try {
     const { userId, workspaceId, topic, varkStyle } = await req.json()
+    if (!userId || !workspaceId || !topic) {
+      throw new Error('userId, workspaceId, dan topic wajib diisi.')
+    }
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Play, RotateCcw, CheckCircle2, ClipboardList, Target } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
-import { useQuestions } from '../../hooks/useClassData'
+import { usePublicQuestions } from '../../hooks/useClassData'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import { BLOOM, codeOf } from '../../lib/bloom'
 import BloomBadge from '../../components/bloom/BloomBadge'
@@ -24,7 +24,7 @@ const STATUS = {
 export default function StudentTasks() {
   const { user } = useAuth()
   const { workspaces, active, setActive } = useActiveWorkspace(user?.id)
-  const { data: questions = [] } = useQuestions(active?.id, { publishedOnly: true })
+  const { data: questions = [] } = usePublicQuestions(active?.id)
   const { data: myProfiles = [] } = useMyBloomProfiles(user?.id, active?.id)
 
   const tasks = useMemo(() => {

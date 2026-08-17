@@ -1,8 +1,17 @@
 -- ============================================================================
 -- VSmartClass — SETUP LENGKAP & IDEMPOTEN (aman dijalankan berulang kali)
 -- Salin-tempel SELURUH file ini ke Supabase SQL Editor, lalu Run sekali.
--- Gabungan migrations 0001–0003: tabel, realtime, RLS, trigger profil,
--- dan backfill profil untuk akun auth lama yang belum punya baris profiles.
+-- Gabungan seluruh migrasi 0001–0010: tabel, realtime, RLS, RPC (join kelas +
+-- baca soal tersanitasi), trigger profil, rate limiting, dan backfill profil
+-- untuk akun auth lama yang belum punya baris profiles.
+--
+-- Catatan: file ini ditujukan untuk SETUP AWAL proyek Supabase baru. Untuk
+-- proyek yang sudah berjalan dari versi setup.sql sebelumnya, jalankan
+-- migrasi bernomor di supabase/migrations/ secara berurutan alih-alih
+-- menjalankan ulang file ini (kolom baru di sini didefinisikan lewat
+-- `create table if not exists`, sehingga tidak otomatis menambah kolom pada
+-- tabel yang sudah ada — migrations/0008 dan seterusnya melakukan itu lewat
+-- `alter table add column if not exists`).
 -- ============================================================================
 
 -- ============================================================ TABEL
@@ -62,13 +71,16 @@ create table if not exists public.sessions (
 );
 
 create table if not exists public.session_answers (
-  id            uuid primary key default gen_random_uuid(),
-  session_id    uuid references public.sessions(id) on delete cascade,
-  question_id   uuid references public.questions(id) on delete set null,
-  chosen_option text,
-  bloom_chosen  text,
-  bloom_target  text,
-  answered_at   timestamptz default now()
+  id                        uuid primary key default gen_random_uuid(),
+  session_id                uuid references public.sessions(id) on delete cascade,
+  question_id               uuid references public.questions(id) on delete set null,
+  chosen_option             text,
+  bloom_chosen              text,
+  bloom_target              text,
+  justification             text,
+  justification_verified    boolean,
+  justification_feedback    text,
+  answered_at               timestamptz default now()
 );
 
 create table if not exists public.bloom_profiles (
@@ -90,15 +102,26 @@ create table if not exists public.bloom_profiles (
 );
 
 create table if not exists public.project_submissions (
-  id            uuid primary key default gen_random_uuid(),
-  workspace_id  uuid references public.workspaces(id) on delete cascade,
-  user_id       uuid references public.profiles(id) on delete cascade,
-  topic         text not null,
-  file_name     text not null,
-  file_size     bigint,
-  file_path     text,
-  description   text,
-  submitted_at  timestamptz default now()
+  id                uuid primary key default gen_random_uuid(),
+  workspace_id      uuid references public.workspaces(id) on delete cascade,
+  user_id           uuid references public.profiles(id) on delete cascade,
+  topic             text not null,
+  file_name         text not null,
+  file_size         bigint,
+  file_path         text,
+  description       text,
+  score             numeric check (score >= 0 and score <= 100),
+  teacher_feedback  text,
+  reviewed_at       timestamptz,
+  submitted_at      timestamptz default now()
+);
+
+-- Rate limiting kuota Gemini per pengguna — dibaca/ditulis HANYA oleh Edge
+-- Function lewat service role (lihat supabase/functions/_shared/rateLimit.ts).
+create table if not exists public.ai_usage (
+  user_id        uuid primary key references public.profiles(id) on delete cascade,
+  window_start   timestamptz not null default now(),
+  request_count  int not null default 0
 );
 
 -- Bucket Storage untuk file laporan proyek (Modul 6).
@@ -144,6 +167,83 @@ $$;
 grant execute on function public.is_member(uuid) to authenticated;
 grant execute on function public.is_guru_of(uuid) to authenticated;
 
+-- Gabung kelas via kode — user_id & role ditentukan SERVER-SIDE dari
+-- auth.uid() + profiles.role: kebal sesi/state klien basi, menutup celah
+-- self-elevation (klien tidak bisa memilih role sendiri saat join).
+create or replace function public.join_workspace_by_code(p_code text)
+returns public.workspaces
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid     uuid := auth.uid();
+  ws      public.workspaces;
+  my_role text;
+begin
+  if uid is null then
+    raise exception 'Sesi tidak valid. Silakan masuk kembali.';
+  end if;
+
+  select * into ws
+  from public.workspaces
+  where upper(join_code) = upper(trim(p_code));
+
+  if not found then
+    raise exception 'Kode tidak ditemukan. Periksa kembali kode dari gurumu.';
+  end if;
+
+  select role into my_role from public.profiles where id = uid;
+
+  insert into public.workspace_members (workspace_id, user_id, role)
+  values (ws.id, uid, coalesce(my_role, 'siswa'))
+  on conflict (workspace_id, user_id) do nothing;
+
+  return ws;
+end;
+$$;
+
+revoke execute on function public.join_workspace_by_code(text) from public, anon;
+grant execute on function public.join_workspace_by_code(text) to authenticated;
+
+-- Baca soal published dengan opsi PG TERSANITASI (hanya id+text, tanpa label
+-- Bloom/indikator/feedback) — dipakai siswa untuk daftar tugas. Alur sesi
+-- adaptif (memilih & mengungkap opsi yang dijawab) memakai Edge Function
+-- get-next-question / reveal-mcq-option, bukan RPC ini (lihat AUDIT.md §2.2).
+create or replace function public.get_published_questions(p_workspace_id uuid, p_topic text default null)
+returns table (
+  id            uuid,
+  workspace_id  uuid,
+  subject       text,
+  topic         text,
+  type          text,
+  bloom_target  text[],
+  prompt        text,
+  rubric        jsonb,
+  options       jsonb,
+  published     boolean,
+  created_at    timestamptz
+)
+language sql security definer stable
+set search_path = public
+as $$
+  select
+    q.id, q.workspace_id, q.subject, q.topic, q.type, q.bloom_target, q.prompt, q.rubric,
+    case when q.type = 'mcq' then (
+      select jsonb_agg(jsonb_build_object('id', opt->>'id', 'text', opt->>'text') order by opt->>'id')
+      from jsonb_array_elements(q.options) as opt
+    ) else null end as options,
+    q.published, q.created_at
+  from public.questions q
+  where q.published = true
+    and q.workspace_id = p_workspace_id
+    and (p_topic is null or q.topic = p_topic)
+    and public.is_member(p_workspace_id);
+$$;
+
+revoke execute on function public.get_published_questions(uuid, text) from public, anon;
+grant execute on function public.get_published_questions(uuid, text) to authenticated;
+
 -- ============================================================ ENABLE RLS
 
 alter table public.profiles enable row level security;
@@ -154,6 +254,7 @@ alter table public.sessions enable row level security;
 alter table public.session_answers enable row level security;
 alter table public.bloom_profiles enable row level security;
 alter table public.project_submissions enable row level security;
+alter table public.ai_usage enable row level security;
 
 -- ============================================================ POLICIES
 -- pola drop-then-create agar idempoten
@@ -207,15 +308,18 @@ create policy "members remove" on public.workspace_members
     user_id = auth.uid() or public.is_guru_of(workspace_id)
   );
 
--- questions
+-- questions — akses PENUH (termasuk label Bloom per opsi) HANYA guru
+-- workspace-nya sendiri. Siswa membaca lewat get_published_questions() /
+-- Edge Function get-next-question & reveal-mcq-option (lihat AUDIT.md §2.2).
 drop policy if exists "questions read" on public.questions;
+drop policy if exists "questions read full guru" on public.questions;
 drop policy if exists "questions insert guru" on public.questions;
 drop policy if exists "questions update own" on public.questions;
 drop policy if exists "questions delete own" on public.questions;
 
-create policy "questions read" on public.questions
+create policy "questions read full guru" on public.questions
   for select to authenticated using (
-    created_by = auth.uid() or (published and public.is_member(workspace_id))
+    public.is_guru_of(workspace_id)
   );
 create policy "questions insert guru" on public.questions
   for insert to authenticated with check (
@@ -230,6 +334,7 @@ create policy "questions delete own" on public.questions
 drop policy if exists "sessions own" on public.sessions;
 drop policy if exists "sessions read by guru" on public.sessions;
 drop policy if exists "answers own" on public.session_answers;
+drop policy if exists "answers read by guru" on public.session_answers;
 
 create policy "sessions own" on public.sessions
   for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -239,6 +344,13 @@ create policy "answers own" on public.session_answers
   for all to authenticated
   using (exists (select 1 from public.sessions s where s.id = session_id and s.user_id = auth.uid()))
   with check (exists (select 1 from public.sessions s where s.id = session_id and s.user_id = auth.uid()));
+create policy "answers read by guru" on public.session_answers
+  for select to authenticated using (
+    exists (
+      select 1 from public.sessions s
+      where s.id = session_id and public.is_guru_of(s.workspace_id)
+    )
+  );
 
 -- bloom_profiles (penulisan via Edge Function service role)
 drop policy if exists "bloom read" on public.bloom_profiles;
@@ -251,6 +363,7 @@ create policy "bloom read" on public.bloom_profiles
 -- project_submissions
 drop policy if exists "projects insert own" on public.project_submissions;
 drop policy if exists "projects read" on public.project_submissions;
+drop policy if exists "projects review by guru" on public.project_submissions;
 
 create policy "projects insert own" on public.project_submissions
   for insert to authenticated with check (user_id = auth.uid() and public.is_member(workspace_id));
@@ -258,6 +371,13 @@ create policy "projects read" on public.project_submissions
   for select to authenticated using (
     user_id = auth.uid() or public.is_guru_of(workspace_id)
   );
+create policy "projects review by guru" on public.project_submissions
+  for update to authenticated
+  using (public.is_guru_of(workspace_id))
+  with check (public.is_guru_of(workspace_id));
+
+-- ai_usage: tidak ada policy untuk role authenticated → RLS menutup akses
+-- klien sepenuhnya, hanya Edge Function (service role) yang bisa baca/tulis.
 
 -- storage.objects untuk bucket project-files
 drop policy if exists "project files insert own" on storage.objects;

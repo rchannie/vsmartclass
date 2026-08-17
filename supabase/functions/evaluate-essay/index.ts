@@ -50,12 +50,16 @@ Deno.serve(async (req) => {
   try {
     const { answer, rubric, topic, subject, targetBloom } = await req.json()
 
-    if (!answer || !rubric?.length) {
+    if (!answer || typeof answer !== 'string' || !rubric?.length) {
       return new Response(
         JSON.stringify({ bloom_level_achieved: targetBloom || 'C2', feedback: 'Jawaban tidak lengkap.', followUpPrompt: null }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
+    if (!topic || !subject) throw new Error('topic dan subject wajib diisi.')
+    // Batasi panjang jawaban yang dikirim ke Gemini — mencegah pemborosan kuota
+    // dari input yang tidak wajar (esai sekolah realistis jauh di bawah ini).
+    const cappedAnswer = answer.length > 4000 ? answer.slice(0, 4000) : answer
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -69,7 +73,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(answer, rubric, topic, subject) }] }],
+        contents: [{ parts: [{ text: buildPrompt(cappedAnswer, rubric, topic, subject) }] }],
         generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
       }),
     })

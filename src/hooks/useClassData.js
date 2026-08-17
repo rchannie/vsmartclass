@@ -33,10 +33,21 @@ export function useClassStats(workspaceId) {
   })
 }
 
+// Guru: akses penuh (termasuk label Bloom per-opsi) — perlu meninjau/mengedit kunci jawaban.
 export function useQuestions(workspaceId, opts = {}) {
   return useQuery({
     queryKey: ['questions', workspaceId, opts],
     queryFn: () => api.getQuestions({ workspaceId, ...opts }),
+    enabled: Boolean(workspaceId),
+  })
+}
+
+// Siswa: soal published dengan opsi tersanitasi (tanpa label Bloom) — dipakai
+// halaman yang hanya perlu tahu topik/tipe soal, bukan kunci jawabannya.
+export function usePublicQuestions(workspaceId, topic) {
+  return useQuery({
+    queryKey: ['public-questions', workspaceId, topic],
+    queryFn: () => api.getPublicQuestions(workspaceId, topic),
     enabled: Boolean(workspaceId),
   })
 }

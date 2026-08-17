@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Play, KeyRound, BookOpen, ArrowRight, ClipboardList, RotateCcw } from 'lucide-react'
 import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
-import { useQuestions } from '../../hooks/useClassData'
+import { usePublicQuestions } from '../../hooks/useClassData'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
 import * as api from '../../lib/api'
 import { BLOOM, codeOf } from '../../lib/bloom'
@@ -15,7 +15,7 @@ import BloomLadder from '../../components/bloom/BloomLadder'
 export default function StudentHome() {
   const { user, profile } = useAuth()
   const { workspaces, active, setActive } = useActiveWorkspace(user?.id)
-  const { data: questions = [] } = useQuestions(active?.id, { publishedOnly: true })
+  const { data: questions = [] } = usePublicQuestions(active?.id)
   const { data: myProfiles = [] } = useMyBloomProfiles(user?.id, active?.id)
 
   // Topik = gabungan topik soal terbit + topik yang pernah dikerjakan

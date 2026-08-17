@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
 
   try {
     const { sessionId, live = false } = await req.json()
+    if (!sessionId) throw new Error('sessionId wajib diisi.')
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -30,9 +32,17 @@ Deno.serve(async (req) => {
     const { data: session, error: sErr } = await supabase
       .from('sessions').select('*').eq('id', sessionId).single()
     if (sErr || !session) throw new Error('Sesi tidak ditemukan')
+    if (!session.user_id || !session.workspace_id || !session.topic) {
+      throw new Error('Sesi tidak lengkap (user_id/workspace_id/topic kosong).')
+    }
 
     const { data: answers = [] } = await supabase
       .from('session_answers').select('*').eq('session_id', sessionId)
+    if (!live && (!answers || answers.length === 0)) {
+      // Sesi final tanpa satu pun jawaban tercatat — kemungkinan bug pemanggil,
+      // jangan diam-diam menulis profil kosong/menyesatkan.
+      throw new Error('Tidak ada jawaban tercatat untuk sesi ini — profil tidak diperbarui.')
+    }
 
     const { data: old } = await supabase
       .from('bloom_profiles').select('*')

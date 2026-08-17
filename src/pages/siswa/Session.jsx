@@ -46,7 +46,7 @@ export default function StudentSession() {
         <button type="button" onClick={() => navigate('/siswa/beranda')} className="btn-ghost !px-2 text-xs">
           <ArrowLeft size={14} /> Keluar sesi
         </button>
-        {(s.phase === 'question' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && (
+        {(s.phase === 'question' || s.phase === 'revealing' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && (
           <ProgressDots total={SESSION_LENGTH} current={s.currentIdx} />
         )}
       </header>
@@ -98,7 +98,7 @@ export default function StudentSession() {
       )}
 
       {/* ——— SOAL & FEEDBACK ——— */}
-      {(s.phase === 'question' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && <QuestionView s={s} />}
+      {(s.phase === 'question' || s.phase === 'revealing' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && <QuestionView s={s} />}
 
       {/* ——— RINGKASAN ——— */}
       {s.phase === 'done' && <Summary s={s} topic={topic} isDiagnostic={s.isDiagnostic} />}
@@ -139,6 +139,7 @@ function QuestionView({ s }) {
   const q = s.items[s.currentIdx]
   if (!q) return null
   const isFeedback   = s.phase === 'feedback'
+  const isRevealing  = s.phase === 'revealing'
   const isJustifying = s.phase === 'justifying'
   const isEvaluating = s.phase === 'evaluating'
   const isLast      = s.answers.length === SESSION_LENGTH - 1
@@ -175,7 +176,7 @@ function QuestionView({ s }) {
               <div className="mt-4 space-y-2.5">
                 {(q.options || []).map((opt) => {
                   const picked = s.picked?.id === opt.id
-                  const locked = isFeedback || isJustifying || isEvaluating
+                  const locked = isFeedback || isRevealing || isJustifying || isEvaluating
                   return (
                     <button
                       key={opt.id}
@@ -209,6 +210,9 @@ function QuestionView({ s }) {
                 >
                   <Send size={15} /> Kirim jawaban
                 </button>
+              )}
+              {isRevealing && (
+                <p className="mt-4 text-center text-xs text-muted">Memeriksa jawabanmu…</p>
               )}
               {/* RF-11: opsi bernalar C4+ mewajibkan alasan singkat sebelum feedback muncul */}
               {(isJustifying || isEvaluating) && (

@@ -14,6 +14,14 @@ import { buildStudentRecs } from './recs'
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Hapus field bloom/indicator/feedback dari tiap opsi PG — dipakai sebelum
+// data soal menyentuh state siswa (lihat AUDIT.md §2.2: label Bloom per-opsi
+// sebelumnya bisa diintip lewat DevTools sebelum soal dijawab).
+function sanitizeQuestion(q) {
+  if (q.type !== 'mcq' || !Array.isArray(q.options)) return q
+  return { ...q, options: q.options.map((o) => ({ id: o.id, text: o.text })) }
+}
+
 const makeJoinCode = () => {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
   return 'VSC-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -276,6 +284,22 @@ export async function getQuestions({ workspaceId, topic, publishedOnly = false }
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
 }
 
+// Daftar soal published dengan opsi PG TERSANITASI (tanpa label Bloom) —
+// dipakai halaman siswa yang cuma perlu tahu topik/tipe soal, bukan kunci
+// jawabannya (Home, Tasks, ProjectSubmit). Untuk guru, tetap pakai getQuestions
+// (perlu melihat kunci jawaban untuk meninjau/mengedit).
+export async function getPublicQuestions(workspaceId, topic) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.rpc('get_published_questions', {
+      p_workspace_id: workspaceId, p_topic: topic || null,
+    })
+    if (error) throw error
+    return data
+  }
+  const rows = await getQuestions({ workspaceId, topic, publishedOnly: true })
+  return rows.map(sanitizeQuestion)
+}
+
 export async function getQuestion(id) {
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.from('questions').select('*').eq('id', id).single()
@@ -366,9 +390,36 @@ export async function createSession({ workspaceId, userId, topic, subject }) {
   return id
 }
 
-// Ambil soal berikutnya: dari bank (published, memuat level target) → fallback AI
-// Prioritas: MCQ, tapi esai diizinkan (khususnya C6/target tinggi)
+// Cache lokal (id soal -> soal lengkap belum tersanitasi) untuk soal yang
+// TIDAK datang dari get-next-question (mode demo, atau fallback saat Edge
+// Function produksi gagal total) — dipakai revealMcqOption di bawah, karena
+// soal semacam ini tidak selalu tersimpan di tabel questions (mis. hasil
+// demoAdaptiveQuestion bersifat sekali pakai, tidak dipersist).
+const localAnswerKeyCache = new Map()
+
+// Soal berikutnya untuk sesi adaptif. Produksi: satu panggilan ke Edge Function
+// get-next-question yang memilih dari bank ATAU generate baru — pemilihan
+// kandidat (yang perlu membaca label Bloom tiap opsi) terjadi di server,
+// sehingga klien hanya menerima opsi yang SUDAH tersanitasi (AUDIT.md §2.2).
+// Bila Edge Function gagal total, jatuh ke generator lokal (jalur yang sama
+// dipakai mode demo) — hasilnya tetap disanitasi & di-cache untuk reveal.
 export async function nextQuestion({ workspaceId, topic, subject, target, excludeIds = [] }) {
+  if (isSupabaseConfigured) {
+    try {
+      const data = await invokeEdge('get-next-question', { workspaceId, topic, subject, target, excludeIds })
+      if (data?.question) return data.question
+    } catch { /* lanjut ke fallback lokal */ }
+  }
+  const q = await pickQuestionLocally({ workspaceId, topic, subject, target, excludeIds })
+  localAnswerKeyCache.set(q.id, q)
+  return sanitizeQuestion(q)
+}
+
+// Bank lokal (mode demo, atau fallback terakhir bila Edge Function produksi
+// gagal total — dalam hal ini getQuestions() akan kosong karena RLS membatasi
+// akses tabel `questions` mentah ke guru saja, sehingga otomatis jatuh ke
+// demoAdaptiveQuestion). Mengembalikan soal APA ADANYA (belum disanitasi).
+async function pickQuestionLocally({ workspaceId, topic, subject, target, excludeIds }) {
   const bank = await getQuestions({ workspaceId, topic, publishedOnly: true })
   const mcqCandidates = bank.filter(
     (q) => q.type === 'mcq' && !excludeIds.includes(q.id) &&
@@ -377,7 +428,6 @@ export async function nextQuestion({ workspaceId, topic, subject, target, exclud
   if (mcqCandidates.length) {
     return mcqCandidates[Math.floor(Math.random() * mcqCandidates.length)]
   }
-  // Coba esai jika tidak ada MCQ untuk target ini (terutama untuk C5–C6)
   const essayCandidates = bank.filter(
     (q) => q.type === 'essay' && !excludeIds.includes(q.id) &&
       (q.bloom_target || []).includes(target),
@@ -385,15 +435,23 @@ export async function nextQuestion({ workspaceId, topic, subject, target, exclud
   if (essayCandidates.length) {
     return essayCandidates[Math.floor(Math.random() * essayCandidates.length)]
   }
-  if (isSupabaseConfigured) {
-    try {
-      const data = await invokeEdge('generate-questions', {
-        subject, topic, grade: 'XI', type: 'mcq', count: 1, maxBloom: target, workspaceId, adaptive: true,
-      })
-      if (data?.questions?.length) return data.questions[0]
-    } catch { /* lanjut ke fallback lokal */ }
-  }
   return demoAdaptiveQuestion({ topic, subject, target })
+}
+
+// Buka label Bloom/indikator/feedback untuk SATU opsi yang dipilih siswa —
+// dipanggil tepat setelah "Kirim jawaban" diklik, bukan sebelumnya. Untuk
+// soal dari get-next-question, lookup dilakukan Edge Function reveal-mcq-option
+// (service role, memvalidasi keanggotaan workspace). Untuk soal lokal (demo/
+// fallback), lookup dari cache di atas.
+export async function revealMcqOption({ questionId, optionId }) {
+  if (isSupabaseConfigured && !localAnswerKeyCache.has(questionId)) {
+    return await invokeEdge('reveal-mcq-option', { questionId, optionId })
+  }
+  await delay(300) // latensi tipis agar transisi UI konsisten dengan jalur produksi
+  const q = localAnswerKeyCache.get(questionId)
+  const option = q?.options?.find((o) => o.id === optionId)
+  if (!option) throw new Error('Opsi tidak ditemukan.')
+  return { bloom: option.bloom, feedback: option.feedback || '', indicator: option.indicator || '' }
 }
 
 // Evaluasi jawaban esai via Gemini → bloom_level_achieved + feedback + followUpPrompt

@@ -1,7 +1,12 @@
 // State machine sesi soal adaptif (Modul 3).
-// Alur MCQ (bloom < C4)    : idle → question → feedback → generating → question … → done
-// Alur MCQ (bloom ≥ C4)    : idle → question → justifying → evaluating → feedback → generating … → done
+// Alur MCQ (bloom < C4)    : idle → question → revealing → feedback → generating → question … → done
+// Alur MCQ (bloom ≥ C4)    : idle → question → revealing → justifying → evaluating → feedback → generating … → done
 // Alur Esai                : idle → question → evaluating → feedback → generating → question … → done
+//
+// 'revealing' = menunggu Edge Function reveal-mcq-option membuka label Bloom/
+// feedback opsi yang dipilih (opsi baru berisi {id,text} sebelum ini, lihat
+// AUDIT.md §2.2) — biasanya sekejap, tapi tetap fase tersendiri agar UI bisa
+// menampilkan status alih-alih membeku.
 //
 // Aturan adaptasi (consecutive-success):
 //   chosen >= target, streak < N  →  next = target       [tetap, bangun streak]
@@ -42,8 +47,8 @@ const initial = {
   subject:      null,
   items:        [],
   currentIdx:   0,
-  phase:        'idle',      // 'idle' | 'question' | 'justifying' | 'evaluating' | 'feedback' | 'generating' | 'done'
-  picked:       null,        // opsi MCQ yang dipilih
+  phase:        'idle',      // 'idle' | 'question' | 'revealing' | 'justifying' | 'evaluating' | 'feedback' | 'generating' | 'done'
+  picked:       null,        // opsi MCQ dipilih — { id, text } saat 'question', + { bloom, feedback, indicator } setelah 'revealing'
   essayResult:  null,        // { bloom_level_achieved, feedback, followUpPrompt } dari evaluate-essay
   justification:       '',   // RF-11: alasan singkat siswa untuk opsi bernalar C4+
   justificationResult: null, // { verified, feedback } dari evaluate-justification
@@ -77,19 +82,36 @@ export const useSession = create((set, get) => ({
     set({ picked: option })
   },
 
-  // Mengirim opsi yang dipilih. Opsi bernalar C4+ (RF-11) masuk fase 'justifying'
-  // dulu untuk menuliskan alasan; opsi di bawah itu langsung ke fase feedback.
-  confirmChoice: () => {
+  // Mengirim opsi yang dipilih. s.picked hanya berisi { id, text } (opsi
+  // tersanitasi — lihat lib/api.js) sampai titik ini; label Bloom/indikator/
+  // feedback baru DIBUKA sekarang lewat revealMcqOption, setelah siswa
+  // benar-benar mengklik "Kirim jawaban" (AUDIT.md §2.2). Opsi yang ternyata
+  // bernalar C4+ (RF-11) masuk fase 'justifying' dulu untuk menuliskan alasan;
+  // opsi di bawah itu langsung ke fase feedback.
+  confirmChoice: async () => {
     const s = get()
     if (s.phase !== 'question' || !s.picked) return
+    const q = s.items[s.currentIdx]
+    set({ phase: 'revealing' })
 
-    if (levelOf(s.picked.bloom) >= ADAPTIVE_CONFIG.JUSTIFICATION_MIN_BLOOM) {
+    let revealed
+    try {
+      revealed = await api.revealMcqOption({ questionId: q.id, optionId: s.picked.id })
+    } catch {
+      // Reveal gagal (jaringan/Edge Function) — jangan jebak siswa di tengah
+      // sesi; anggap netral C2 (tanpa justifikasi) agar sesi tetap lanjut.
+      revealed = { bloom: 'C2', feedback: 'Terjadi kendala menilai opsi ini — sesi tetap berlanjut.', indicator: '' }
+    }
+    const picked = { ...s.picked, ...revealed }
+    set({ picked })
+
+    if (levelOf(picked.bloom) >= ADAPTIVE_CONFIG.JUSTIFICATION_MIN_BLOOM) {
       set({ phase: 'justifying' })
       return
     }
 
     set({ phase: 'feedback' })
-    get()._prefetchNext(s.picked.bloom)
+    get()._prefetchNext(picked.bloom)
   },
 
   // RF-11: kirim alasan singkat untuk opsi bernalar C4+ → evaluate-justification

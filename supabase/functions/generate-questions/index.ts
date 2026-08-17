@@ -1,51 +1,21 @@
 // Edge Function: generate-questions
-// Input : { subject, topic, grade, type, count, maxBloom, workspaceId, createdBy?, adaptive? }
+// Input : { subject, topic, grade, type, count, maxBloom, workspaceId }
 // Output: { questions: Question[] }  — sudah tersimpan di tabel `questions` (published=false)
 // Secrets: GEMINI_API_KEY
+//
+// Dipanggil guru secara eksplisit (menu "Buat Soal") — mengembalikan soal
+// APA ADANYA termasuk label Bloom & feedback per opsi, karena guru memang
+// perlu meninjau/mengedit jawaban sebelum publish. Untuk soal yang dilihat
+// SISWA selama sesi adaptif, lihat get-next-question (yang mensanitasi opsi)
+// dan reveal-mcq-option (yang membuka label hanya untuk opsi yang dipilih).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { checkRateLimit, getUserId, rateLimitResponse } from '../_shared/rateLimit.ts'
+import { buildQuestionRows, generateQuestionsViaGemini } from '../_shared/generateQuestions.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
-
-function buildPrompt({ subject, topic, grade, type, count, maxBloom }: Record<string, unknown>) {
-  const maxLevel = String(maxBloom ?? 'C4').replace(/\D/g, '') || '4'
-  return `
-Kamu adalah asisten pendidik berbasis Taksonomi Bloom Revisi Anderson & Krathwohl.
-
-Tugas: buat ${count} soal ${type === 'mcq' ? 'Pilihan Ganda' : 'Esai'} untuk mapel
-${subject}, topik "${topic}", jenjang SMA kelas ${grade}.
-
-Untuk Pilihan Ganda:
-- Setiap soal punya 4 opsi (A–D).
-- Setiap opsi HARUS mewakili level Bloom yang BERBEDA (C1 s.d. maks C${maxLevel}).
-- Urutkan opsi dari level terendah ke tertinggi.
-- Setiap opsi punya: text (jawaban), bloom (mis. "C3"), indicator (1 kalimat
-  deskripsi proses kognitif yang terjadi), feedback (1–2 kalimat formatif untuk siswa).
-- Tidak ada "opsi benar" tunggal — semua opsi valid di level-nya masing-masing.
-
-Untuk Esai:
-- 1 soal terbuka yang bisa dijawab di berbagai kedalaman kognitif.
-- Rubrik: 4 kriteria masing-masing untuk C2, C3, C4, C5 (field "rubric": [{bloom, desc}]).
-
-Output: JSON murni, tidak ada teks lain di luar JSON.
-Schema:
-{
-  "questions": [{
-    "prompt": "...",
-    "type": "${type}",
-    "bloomTarget": ["C1","C2","C3","C4"],
-    "options": [{ "id":"A","text":"...","bloom":"C1","indicator":"...","feedback":"..." }],
-    "rubric": null
-  }]
-}
-`.trim()
 }
 
 Deno.serve(async (req) => {
@@ -53,7 +23,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { subject, topic, workspaceId } = body
+    const { subject, topic, grade, type, count, maxBloom, workspaceId } = body
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -64,37 +34,18 @@ Deno.serve(async (req) => {
     const rate = await checkRateLimit(supabase, createdBy)
     if (!rate.allowed) return rateLimitResponse(rate.retryAfterMs!, corsHeaders)
 
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${Deno.env.get('GEMINI_API_KEY')}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(body) }] }],
-        generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
-      }),
-    })
-    if (!geminiRes.ok) {
-      const detail = (await geminiRes.text()).slice(0, 400)
-      throw new Error(`Gemini error ${geminiRes.status}: ${detail}`)
+    if (!workspaceId || !topic || !subject) {
+      throw new Error('workspaceId, subject, dan topic wajib diisi.')
     }
+    if (type !== 'mcq' && type !== 'essay') {
+      throw new Error('type harus "mcq" atau "essay".')
+    }
+    // Selaras dengan slider di QuestionGenerator.jsx (maks 15) — mencegah
+    // permintaan tidak wajar menghabiskan kuota Gemini dalam satu panggilan.
+    const safeCount = Math.min(15, Math.max(1, Number(count) || 1))
 
-    const gemini = await geminiRes.json()
-    const text = gemini.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
-    const parsed = JSON.parse(text)
-    const items = (parsed.questions ?? []) as Array<Record<string, unknown>>
-
-    // Simpan ke tabel questions (published=false) dengan service role
-    const rows = items.map((q) => ({
-      workspace_id: workspaceId,
-      created_by: createdBy,
-      subject,
-      topic,
-      type: q.type ?? body.type ?? 'mcq',
-      bloom_target: q.bloomTarget ?? q.bloom_target ?? [],
-      prompt: q.prompt,
-      options: q.options ?? null,
-      rubric: q.rubric ?? null,
-      published: false,
-    }))
+    const items = await generateQuestionsViaGemini({ subject, topic, grade, type, count: safeCount, maxBloom })
+    const rows = buildQuestionRows(items, { workspaceId, createdBy, subject, topic, type })
 
     const { data: saved, error } = await supabase.from('questions').insert(rows).select()
     if (error) {

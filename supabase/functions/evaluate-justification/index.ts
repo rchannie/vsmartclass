@@ -62,6 +62,12 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
+    if (!questionPrompt || !optionText || !bloomClaimed || !topic || !subject) {
+      throw new Error('questionPrompt, optionText, bloomClaimed, topic, dan subject wajib diisi.')
+    }
+    const cappedJustification = String(justification).length > 2000
+      ? String(justification).slice(0, 2000)
+      : justification
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -75,7 +81,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(questionPrompt, optionText, bloomClaimed, justification, topic, subject) }] }],
+        contents: [{ parts: [{ text: buildPrompt(questionPrompt, optionText, bloomClaimed, cappedJustification, topic, subject) }] }],
         generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
       }),
     })
