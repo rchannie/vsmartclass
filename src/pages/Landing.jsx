@@ -7,17 +7,17 @@ import { useAuth } from '../stores/auth'
 import { BLOOM, BLOOM_LEVELS } from '../lib/bloom'
 import Logo from '../components/ui/Logo'
 
-// Tiga pilar utama — sesuai proposal LIDM
+// Tiga pilar utama sesuai proposal LIDM
 const PILLARS = [
   {
     icon: Sparkles,
     title: 'Smart Question Generator',
-    desc: 'AI menyusun soal yang setiap opsi jawabannya berlabel level Bloom (C1–C6). Tidak ada jawaban salah — setiap pilihan mencerminkan kedalaman berpikir.',
+    desc: 'AI menyusun soal yang setiap opsi jawabannya berlabel level Bloom (C1–C6). Tidak ada jawaban salah setiap pilihan mencerminkan kedalaman berpikir.',
   },
   {
     icon: GitBranch,
     title: 'Bloom-Based Adaptive Evaluation',
-    desc: 'Tingkat soal naik-turun mengikuti performa riil siswa — adaptasi dalam sesi dan antar sesi, layaknya Computerized Adaptive Testing.',
+    desc: 'Tingkat soal naik-turun mengikuti performa riil siswa adaptasi dalam sesi dan antar sesi, layaknya Computerized Adaptive Testing.',
   },
   {
     icon: Lightbulb,
@@ -35,7 +35,7 @@ const GURU_STEPS = [
 
 const SISWA_STEPS = [
   { icon: KeyRound, text: 'Gabung kelas dengan kode dari gurumu' },
-  { icon: Play, text: 'Kerjakan sesi adaptif — soal menyesuaikan level berpikirmu' },
+  { icon: Play, text: 'Kerjakan sesi adaptif soal menyesuaikan level berpikirmu' },
   { icon: UserRound, text: 'Lihat Profil Bloom dan rekomendasi belajar sesuai gayamu' },
   { icon: FolderOpen, text: 'Buktikan level Mencipta (C6) lewat proyek karyamu' },
 ]
@@ -92,7 +92,7 @@ export default function Landing() {
             ) : (
               <>
                 <Link to="/daftar" className="btn-primary px-6 py-3">
-                  Mulai Sekarang — Gratis <ArrowRight size={16} />
+                  Mulai Sekarang Gratis <ArrowRight size={16} />
                 </Link>
                 <Link to="/masuk" className="btn-outline px-6 py-3">
                   <LogIn size={16} /> Masuk
@@ -117,7 +117,7 @@ export default function Landing() {
             ))}
           </div>
           <p className="mt-3 text-center text-xs text-muted">
-            Tangga kognitif Taksonomi Bloom Revisi — dari Mengingat (C1) hingga Mencipta (C6)
+            Tangga kognitif Taksonomi Bloom Revisi dari Mengingat (C1) hingga Mencipta (C6)
           </p>
         </div>
       </section>
@@ -187,7 +187,7 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl px-4 py-14 md:px-8">
           <h2 className="text-center text-xl md:text-2xl">Enam Level Berpikir</h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-sm text-muted">
-            Setiap interaksi belajar diberi label level kognitif — fondasi seluruh sistem VSmartClass.
+            Setiap interaksi belajar diberi label level kognitif fondasi seluruh sistem VSmartClass.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {BLOOM_LEVELS.map((code) => (
@@ -225,7 +225,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 md:flex-row md:px-8">
           <Logo size="sm" textClassName="text-sm" />
           <p className="text-xs text-muted">
-            VSmartClass — Lomba Inovasi Digital Mahasiswa · Universitas Pendidikan Indonesia
+            VSmartClass Lomba Inovasi Digital Mahasiswa · Universitas Pendidikan Indonesia
           </p>
         </div>
       </footer>

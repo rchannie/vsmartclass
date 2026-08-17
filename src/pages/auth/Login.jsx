@@ -89,7 +89,7 @@ export default function Login() {
         {!isSupabaseConfigured && (
           <div className="mt-4 rounded-lg border border-dashed border-line bg-surface p-4">
             <p className="text-center text-[11px] font-bold uppercase tracking-wide text-muted">
-              Mode demo — coba cepat
+              Mode demo coba cepat
             </p>
             <div className="mt-2.5 flex gap-2">
               {DEMO_ACCOUNTS.map((a) => (

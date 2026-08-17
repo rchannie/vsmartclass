@@ -77,7 +77,7 @@ export default function TeacherDashboard() {
         {/* Roster kelas aktif */}
         <Panel
           className="lg:col-span-3"
-          title={`Aktivitas siswa${active ? ` — ${active.name}` : ''}`}
+          title={`Aktivitas siswa${active ? ` ${active.name}` : ''}`}
           subtitle="Level Bloom terkini, tren, dan status tiap siswa"
           action={
             active && (

@@ -33,7 +33,7 @@ export default function StudentRecs() {
     })
   }, [user?.id])
 
-  // Rekomendasi AI — di-fetch ulang saat profil/topik/gaya belajar berubah
+  // Rekomendasi AI di-fetch ulang saat profil/topik/gaya belajar berubah
   const { data: recsData, isFetching: recsLoading } = useQuery({
     queryKey: ['student-recs', user?.id, active?.id, topic, varkStyle, p?.updated_at],
     queryFn: () => api.getStudentRecs(user.id, active.id, topic, varkStyle),
@@ -67,7 +67,7 @@ export default function StudentRecs() {
         <div>
           <h1 className="text-2xl">Rekomendasi untukmu</h1>
           <p className="mt-1 text-sm text-muted">
-            Disusun dari profil Bloom-mu — area yang paling butuh perhatian:{' '}
+            Disusun dari profil Bloom-mu area yang paling butuh perhatian:{' '}
             <span className="font-mono font-extrabold" style={{ color: BLOOM[displayWeakest].color }}>
               {displayWeakest} · {BLOOM[displayWeakest].name}
             </span>
@@ -90,7 +90,7 @@ export default function StudentRecs() {
         </div>
       </header>
 
-      {/* Spaced review — topik yang belum tuntas & belum disentuh sekian hari */}
+      {/* Spaced review topik yang belum tuntas & belum disentuh sekian hari */}
       {spacedReview.length > 0 && (
         <div className="card space-y-2.5 p-5" style={{ borderColor: 'var(--c4)' }}>
           <div className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export default function StudentRecs() {
             <h3 className="text-sm font-extrabold">Waktunya review</h3>
           </div>
           <p className="text-xs text-muted">
-            Topik ini belum kamu sentuh beberapa hari dan levelnya belum tuntas — jaga supaya tidak luntur.
+            Topik ini belum kamu sentuh beberapa hari dan levelnya belum tuntas jaga supaya tidak luntur.
           </p>
           <div className="flex flex-wrap gap-2">
             {spacedReview.map((p) => (
@@ -117,7 +117,7 @@ export default function StudentRecs() {
         </div>
       )}
 
-      {/* VARK survey — tampil jika belum ada gaya belajar tersimpan */}
+      {/* VARK survey tampil jika belum ada gaya belajar tersimpan */}
       {varkLoaded && !varkStyle && (
         <VarkSurvey onComplete={handleVarkComplete} />
       )}
@@ -136,10 +136,10 @@ export default function StudentRecs() {
         </div>
       )}
 
-      {/* CTA C6 — Tantangan Mencipta */}
+      {/* CTA C6 Tantangan Mencipta */}
       <div
         className="card flex flex-wrap items-center justify-between gap-4 p-6"
-        // tint 6% (bukan 8%) agar teks .text-muted di dalam kartu ini tetap >=4.5:1 — WCAG AA
+        // tint 6% (bukan 8%) agar teks .text-muted di dalam kartu ini tetap >=4.5:1 WCAG AA
         style={{ background: softBg('C6', 6), borderColor: BLOOM.C6.color }}
       >
         <div className="flex items-center gap-3.5">

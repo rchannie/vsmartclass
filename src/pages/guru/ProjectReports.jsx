@@ -7,7 +7,7 @@ import { useProjectSubmissions } from '../../hooks/useClassData'
 import * as api from '../../lib/api'
 import Panel from '../../components/ui/Panel'
 
-// Modul 6 — Project Submission. Menu khusus guru untuk meninjau & mengunduh
+// Modul 6 Project Submission. Menu khusus guru untuk meninjau & mengunduh
 // seluruh laporan proyek (bukti penguasaan C6) dari siswa di kelasnya,
 // terlepas dari halaman Rekomendasi (yang fokus ke strategi mengajar).
 export default function ProjectReports() {
@@ -55,7 +55,7 @@ export default function ProjectReports() {
         <div>
           <h1 className="text-2xl">Proyek Siswa</h1>
           <p className="mt-1 text-sm text-muted">
-            Laporan proyek mini sebagai bukti penguasaan C6 — Mencipta (Modul 6).
+            Laporan proyek mini sebagai bukti penguasaan C6 Mencipta (Modul 6).
           </p>
         </div>
         {workspaceSelector}
@@ -113,7 +113,7 @@ export default function ProjectReports() {
   )
 }
 
-// Baris laporan + form nilai singkat (Modul 6 — "guru tinjau & beri nilai").
+// Baris laporan + form nilai singkat (Modul 6 "guru tinjau & beri nilai").
 function SubmissionRow({ submission: s, downloading, onDownload, onReviewed }) {
   const [editing, setEditing] = useState(false)
   const [score, setScore] = useState(s.score ?? '')

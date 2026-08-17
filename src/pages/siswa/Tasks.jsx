@@ -52,7 +52,7 @@ export default function StudentTasks() {
       <header>
         <h1 className="text-2xl">Tugas Aktif</h1>
         <p className="mt-1 text-sm text-muted">
-          Soal yang diterbitkan gurumu — setiap sesi menyesuaikan level berpikirmu secara otomatis.
+          Soal yang diterbitkan gurumu setiap sesi menyesuaikan level berpikirmu secara otomatis.
         </p>
       </header>
 

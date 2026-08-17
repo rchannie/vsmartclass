@@ -72,7 +72,7 @@ export default function QuestionGenerator() {
       <header>
         <h1 className="text-2xl">Smart Question Generator</h1>
         <p className="mt-1 text-sm text-muted">
-          Soal berlabel Taksonomi Bloom — setiap opsi mewakili level kognitif berbeda, tidak ada jawaban salah.
+          Soal berlabel Taksonomi Bloom setiap opsi mewakili level kognitif berbeda, tidak ada jawaban salah.
         </p>
       </header>
 
@@ -84,7 +84,7 @@ export default function QuestionGenerator() {
             <div>
               <label className="label" htmlFor="gen-workspace">Workspace tujuan</label>
               <select id="gen-workspace" className="input" value={active?.id || ''} onChange={(e) => setActive(e.target.value)}>
-                {workspaces.length === 0 && <option value="">— belum ada workspace —</option>}
+                {workspaces.length === 0 && <option value="">belum ada workspace —</option>}
                 {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             </div>

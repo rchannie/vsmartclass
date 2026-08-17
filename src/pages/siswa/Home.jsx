@@ -42,7 +42,7 @@ export default function StudentHome() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl">Halo, {profile?.full_name?.split(' ')[0] || 'Siswa'}</h1>
-        <p className="mt-1 text-sm text-muted">Setiap jawaban menunjukkan caramu berpikir — tidak ada jawaban salah di sini.</p>
+        <p className="mt-1 text-sm text-muted">Setiap jawaban menunjukkan caramu berpikir tidak ada jawaban salah di sini.</p>
       </header>
 
       {workspaces.length === 0 ? (
@@ -125,7 +125,7 @@ export default function StudentHome() {
                                   <span>{p.session_count} sesi</span>
                                 </>
                               ) : (
-                                <span>Belum dimulai — mulai dari C2</span>
+                                <span>Belum dimulai mulai dari C2</span>
                               )}
                             </div>
                           </div>

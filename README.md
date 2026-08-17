@@ -100,7 +100,7 @@ Kode kelas demo: `VSC-7QK2` (XI MIPA 2 · SMA Negeri 3 Bandung).
    kepala file.)*
 3. Buat akun-akun demo lewat Authentication (atau biarkan pengguna
    mendaftar sendiri), lalu jalankan `supabase/seed.sql` bila ingin data
-   demo LIDM/GEMASTIK.
+   demo GEMASTIK.
 4. Deploy Edge Functions dan set secret Gemini:
 
    ```bash
@@ -195,4 +195,8 @@ docs/
 
 ## Lisensi
 
-MIT — lihat [`LICENSE`](LICENSE).
+**MIT License** — lihat berkas [`LICENSE`](LICENSE) di root repositori untuk
+teks lengkap & pemegang hak cipta. Detail adopsi lisensi (alasan pemilihan,
+ruang lingkup, kepatuhan dependensi): [`docs/ADOPSI_LISENSI.md`](docs/ADOPSI_LISENSI.md).
+Daftar lengkap komponen pihak ketiga & lisensinya:
+[`docs/DAFTAR_KOMPONEN_LISENSI.md`](docs/DAFTAR_KOMPONEN_LISENSI.md).

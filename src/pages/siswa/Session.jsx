@@ -51,7 +51,7 @@ export default function StudentSession() {
         )}
       </header>
 
-      {/* ——— INTRO ——— */}
+      {/* ——INTRO ——*/}
       {s.phase === 'idle' && (
         <div className="card fade-up p-7 text-center">
           {isDiagnostic ? (
@@ -67,7 +67,7 @@ export default function StudentSession() {
           <h1 className="mt-3 text-xl">{topic}</h1>
           <p className="mt-2 text-sm text-muted">
             {isDiagnostic
-              ? `Sesi pertamamu di topik ini — ${SESSION_LENGTH} soal untuk memetakan posisi berpikirmu. Mulai dari C3 agar kalibrasi lebih cepat.`
+              ? `Sesi pertamamu di topik ini ${SESSION_LENGTH} soal untuk memetakan posisi berpikirmu. Mulai dari C3 agar kalibrasi lebih cepat.`
               : `${SESSION_LENGTH} soal adaptif · melanjutkan dari ${startLevel} · soal menyesuaikan caramu menjawab.`}
           </p>
           <div
@@ -77,7 +77,7 @@ export default function StudentSession() {
             <HeartHandshake size={16} className="mt-0.5 shrink-0" style={{ color: BLOOM[introTarget].color }} />
             <span>
               <span className="font-extrabold">Tidak ada jawaban salah.</span> Setiap opsi mewakili cara
-              berpikir yang berbeda — pilih yang paling dekat dengan caramu, dan sistem akan memahami levelmu.
+              berpikir yang berbeda pilih yang paling dekat dengan caramu, dan sistem akan memahami levelmu.
             </span>
           </div>
           <button type="button" onClick={start} className="btn-primary mt-5 px-8">
@@ -86,7 +86,7 @@ export default function StudentSession() {
         </div>
       )}
 
-      {/* ——— GENERATING / ADAPTASI ——— */}
+      {/* ——GENERATING / ADAPTASI ——*/}
       {s.phase === 'generating' && (
         <>
           {s.adaptation && <AdaptInfo adaptation={s.adaptation} />}
@@ -97,10 +97,10 @@ export default function StudentSession() {
         </>
       )}
 
-      {/* ——— SOAL & FEEDBACK ——— */}
+      {/* ——SOAL & FEEDBACK ——*/}
       {(s.phase === 'question' || s.phase === 'revealing' || s.phase === 'justifying' || s.phase === 'evaluating' || s.phase === 'feedback') && <QuestionView s={s} />}
 
-      {/* ——— RINGKASAN ——— */}
+      {/* ——RINGKASAN ——*/}
       {s.phase === 'done' && <Summary s={s} topic={topic} isDiagnostic={s.isDiagnostic} />}
     </div>
   )
@@ -111,16 +111,16 @@ function AdaptInfo({ adaptation }) {
   const Icon = direction > 0 ? ArrowUpRight : direction < 0 ? ArrowDownRight : MoveRight
   const text =
     direction > 0
-      ? `Jawabanmu menunjukkan kamu siap naik — target ${from} → ${to}.`
+      ? `Jawabanmu menunjukkan kamu siap naik target ${from} → ${to}.`
       : direction < 0
         ? `Kita mantapkan dulu di ${to} sebelum melangkah lebih tinggi.`
-        : `Target bertahan di ${to} — mari kuatkan level ini.`
+        : `Target bertahan di ${to} mari kuatkan level ini.`
   const scaffold = direction < 0 ? SCAFFOLD_TIPS[to] : null
   return (
     <div className="space-y-1.5">
       <div
         className="fade-up flex items-center gap-2.5 rounded-md p-3.5 text-xs font-bold"
-        // tint 8% (bukan 12%) agar teks warna Bloom di atasnya tetap >=4.5:1 — WCAG AA
+        // tint 8% (bukan 12%) agar teks warna Bloom di atasnya tetap >=4.5:1 WCAG AA
         style={{ background: softBg(to, 8), color: BLOOM[to].color }}
       >
         <Icon size={16} />
@@ -156,7 +156,7 @@ function QuestionView({ s }) {
           style={{ background: BLOOM.C6.color }}
         >
           <Target size={14} />
-          Tantangan Mencipta — kamu sudah di puncak Bloom! Soal ini mengundangmu untuk menciptakan sesuatu yang orisinal.
+          Tantangan Mencipta kamu sudah di puncak Bloom! Soal ini mengundangmu untuk menciptakan sesuatu yang orisinal.
         </div>
       )}
 
@@ -169,10 +169,10 @@ function QuestionView({ s }) {
           <p className="text-base font-extrabold leading-relaxed">{q.prompt}</p>
 
           {isEssay ? (
-            /* ——— Essay input ——— */
+            /* ——Essay input ——*/
             <EssayInput s={s} isLast={isLast} isEvaluating={isEvaluating} isFeedback={isFeedback} />
           ) : (
-            /* ——— MCQ options ——— */
+            /* ——MCQ options ——*/
             <>
               <div className="mt-4 space-y-2.5">
                 {(q.options || []).map((opt) => {
@@ -200,7 +200,7 @@ function QuestionView({ s }) {
                 })}
               </div>
               <p className="mt-4 text-center text-[11px] text-muted">
-                Tidak ada jawaban salah — pilih yang paling menggambarkan caramu berpikir.
+                Tidak ada jawaban salah pilih yang paling menggambarkan caramu berpikir.
               </p>
               {s.phase === 'question' && (
                 <button
@@ -224,7 +224,7 @@ function QuestionView({ s }) {
         </div>
       </div>
 
-      {/* Feedback MCQ — modal setelah jawaban dikirim */}
+      {/* Feedback MCQ modal setelah jawaban dikirim */}
       {isFeedback && s.picked && !isEssay && (
         <FeedbackModal>
           <div className="flex items-center gap-2">
@@ -244,7 +244,7 @@ function QuestionView({ s }) {
               <p className="font-bold">
                 {s.justificationResult.verified
                   ? 'Alasanmu menunjukkan penalaran ini dengan jelas.'
-                  : `Dicatat sebagai ${codeOf(levelOf(s.picked.bloom) - 1)} — alasanmu belum sepenuhnya menunjukkan penalaran ${s.picked.bloom}.`}
+                  : `Dicatat sebagai ${codeOf(levelOf(s.picked.bloom) - 1)} alasanmu belum sepenuhnya menunjukkan penalaran ${s.picked.bloom}.`}
               </p>
               {s.justificationResult.feedback && <p className="mt-1">{s.justificationResult.feedback}</p>}
             </div>
@@ -258,7 +258,7 @@ function QuestionView({ s }) {
   )
 }
 
-// RF-11: alasan singkat wajib untuk opsi bernalar C4+ — dievaluasi AI sebelum feedback muncul.
+// RF-11: alasan singkat wajib untuk opsi bernalar C4+ dievaluasi AI sebelum feedback muncul.
 function JustificationBlock({ s, isEvaluating }) {
   const [text, setText] = useState('')
   return (
@@ -266,7 +266,7 @@ function JustificationBlock({ s, isEvaluating }) {
       <p className="flex items-start gap-2 text-xs leading-relaxed">
         <Lightbulb size={13} className="mt-0.5 shrink-0 text-[color:var(--c4)]" />
         <span>
-          Opsi ini menunjukkan penalaran <span className="font-bold">{s.picked.bloom}</span> — tuliskan alasan
+          Opsi ini menunjukkan penalaran <span className="font-bold">{s.picked.bloom}</span> tuliskan alasan
           singkat kenapa kamu memilihnya, supaya levelmu benar-benar terkonfirmasi.
         </span>
       </p>
@@ -314,7 +314,7 @@ function EssayInput({ s, isLast, isEvaluating, isFeedback }) {
       <FeedbackModal>
         <div className="flex items-center gap-2">
           <BloomBadge code={code} size="md" />
-          <p className="text-sm font-extrabold">{BLOOM[code].name} — level yang kamu tunjukkan</p>
+          <p className="text-sm font-extrabold">{BLOOM[code].name} level yang kamu tunjukkan</p>
         </div>
         <p className="mt-2 text-sm leading-relaxed">{result.feedback}</p>
         {result.followUpPrompt && (
@@ -334,7 +334,7 @@ function EssayInput({ s, isLast, isEvaluating, isFeedback }) {
     <div className="mt-4 space-y-3">
       <textarea
         className="input min-h-[120px] text-sm"
-        placeholder="Tuliskan jawabanmu di sini — tidak ada batasan panjang, ekspresikan pikiranmu…"
+        placeholder="Tuliskan jawabanmu di sini tidak ada batasan panjang, ekspresikan pikiranmu…"
         value={text}
         onChange={(e) => setText(e.target.value)}
         disabled={isEvaluating}
@@ -370,7 +370,7 @@ function Summary({ s, topic, isDiagnostic }) {
           {isDiagnostic ? <Target size={15} /> : <Flag size={15} />}
           {isDiagnostic ? `Kalibrasi selesai: ${finalCode} · ${BLOOM[finalCode].name}` : `Level sesi ini: ${finalCode} · ${BLOOM[finalCode].name}`}
         </span>
-        <h2 className="mt-3 text-xl">{isDiagnostic ? 'Kalibrasi awal selesai!' : 'Sesi selesai — kerja bagus!'}</h2>
+        <h2 className="mt-3 text-xl">{isDiagnostic ? 'Kalibrasi awal selesai!' : 'Sesi selesai kerja bagus!'}</h2>
         <p className="mt-1 text-sm text-muted">{topic} · {s.answers.length} soal</p>
       </div>
 
@@ -394,7 +394,7 @@ function Summary({ s, topic, isDiagnostic }) {
 
       {s.result && (
         <p className="mt-5 text-center text-xs text-muted">
-          Profil Bloom-mu telah diperbarui — level saat ini{' '}
+          Profil Bloom-mu telah diperbarui level saat ini{' '}
           <span className="font-mono font-extrabold" style={{ color: BLOOM[codeOf(s.result.current_level)].color }}>
             {codeOf(s.result.current_level)}
           </span>{' '}

@@ -15,12 +15,12 @@ export default function ProjectSubmit() {
   const { active } = useActiveWorkspace(user?.id)
   const { data: questions = [] } = usePublicQuestions(active?.id)
   const { data: myProfiles = [], isLoading: loadingProfiles } = useMyBloomProfiles(user?.id)
-  // RLS "projects read" hanya mengizinkan siswa baca barisnya sendiri — aman dipanggil di sini.
+  // RLS "projects read" hanya mengizinkan siswa baca barisnya sendiri aman dipanggil di sini.
   const { data: mySubmissions = [] } = useProjectSubmissions(active?.id)
 
   // Syarat Modul 6: hanya siswa yang sudah benar-benar mencapai C6 (Mencipta)
-  // di salah satu topik — bukti telah menyelesaikan seluruh tugas adaptif di
-  // topik itu — yang boleh mengumpulkan proyek.
+  // di salah satu topik bukti telah menyelesaikan seluruh tugas adaptif di
+  // topik itu yang boleh mengumpulkan proyek.
   const c6Topics = [...new Set(myProfiles.filter((p) => p.current_level === 6).map((p) => p.topic))]
   const hasReachedC6 = c6Topics.length > 0
 
@@ -90,7 +90,7 @@ export default function ProjectSubmit() {
         <h2 className="mt-4 text-lg font-extrabold">Belum bisa mengumpulkan proyek</h2>
         <p className="mt-2 text-sm text-muted">
           Kumpulkan Proyek baru terbuka setelah kamu menyelesaikan semua tugas adaptif di suatu
-          topik dan mencapai level tertinggi <strong>C6 — Mencipta</strong>. Lanjutkan mengerjakan
+          topik dan mencapai level tertinggi <strong>C6 Mencipta</strong>. Lanjutkan mengerjakan
           sesi di halaman Tugas untuk membuka fitur ini.
         </p>
       </div>
@@ -121,7 +121,7 @@ export default function ProjectSubmit() {
       <header>
         <h1 className="text-2xl">Kumpulkan Proyek Mini</h1>
         <p className="mt-1 text-sm text-muted">
-          Unggah laporan proyekmu sebagai bukti penguasaan C6 — Mencipta.
+          Unggah laporan proyekmu sebagai bukti penguasaan C6 Mencipta.
         </p>
       </header>
 

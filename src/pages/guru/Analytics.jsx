@@ -98,7 +98,7 @@ export default function TeacherAnalytics() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl">Bloom Analytics</h1>
-          <p className="mt-1 text-sm text-muted">Peta kognitif kelas — diperbarui langsung saat siswa menyelesaikan sesi.</p>
+          <p className="mt-1 text-sm text-muted">Peta kognitif kelas diperbarui langsung saat siswa menyelesaikan sesi.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {workspaces.length > 0 && (
@@ -149,7 +149,7 @@ export default function TeacherAnalytics() {
       {misconceptions.length > 0 && (
         <Panel
           title="Pola Kesalahan &amp; Miskonsepsi"
-          subtitle="Topik dengan jawaban paling sering di bawah target — kandidat intervensi guru"
+          subtitle="Topik dengan jawaban paling sering di bawah target kandidat intervensi guru"
         >
           <div className="space-y-2">
             {misconceptions.slice(0, 5).map((m) => (
@@ -197,7 +197,7 @@ export default function TeacherAnalytics() {
         <Panel
           className="lg:col-span-3"
           title="Aktivitas kelas"
-          subtitle={filterLevel ? `Filter: C${filterLevel} — ${tableProfiles.length} siswa` : `${profiles.length} siswa`}
+          subtitle={filterLevel ? `Filter: C${filterLevel} ${tableProfiles.length} siswa` : `${profiles.length} siswa`}
           bodyClassName="!p-0"
           action={
             <div className="flex flex-wrap items-center gap-1">
@@ -262,7 +262,7 @@ export default function TeacherAnalytics() {
                         {status === 'plateau' && (
                           <span className="inline-flex items-center gap-1 text-[10px] text-[color:var(--c4)] leading-tight max-w-[150px] text-right">
                             <MessageCircle size={9} className="shrink-0" />
-                            Variasikan metode — coba diskusi atau soal analisis baru
+                            Variasikan metode coba diskusi atau soal analisis baru
                           </span>
                         )}
                         {status === 'attention' && (

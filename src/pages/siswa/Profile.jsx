@@ -44,7 +44,7 @@ export default function StudentProfile() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl">Profil Bloom — {profile?.full_name?.split(' ')[0]}</h1>
+          <h1 className="text-2xl">Profil Bloom {profile?.full_name?.split(' ')[0]}</h1>
           <p className="mt-1 text-sm text-muted">
             Posisimu sekarang: <span className="font-mono font-extrabold" style={{ color: BLOOM[code].color }}>{code} · {BLOOM[code].name}</span>
             {p && p.trend !== 0 && (

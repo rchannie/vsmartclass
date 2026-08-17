@@ -9,7 +9,7 @@ import BankQuestionRow from '../../components/questions/BankQuestionRow'
 import Panel from '../../components/ui/Panel'
 
 // Bank soal lengkap: seluruh tugas (topik) yang soalnya sudah digenerate AI
-// dan dipublikasikan ke kelas — beda dengan panel di "Buat Soal" yang hanya
+// dan dipublikasikan ke kelas beda dengan panel di "Buat Soal" yang hanya
 // menampilkan bank untuk topik yang sedang digarap saat itu.
 export default function QuestionBank() {
   const { user } = useAuth()
@@ -71,7 +71,7 @@ export default function QuestionBank() {
           </span>
           <h3 className="mt-3 text-base">Belum ada soal terpublikasi</h3>
           <p className="mt-1 max-w-sm text-sm text-muted">
-            Buat soal lewat menu <span className="font-bold">Buat Soal</span>, lalu publikasikan ke kelas — tugasnya akan muncul di sini.
+            Buat soal lewat menu <span className="font-bold">Buat Soal</span>, lalu publikasikan ke kelas tugasnya akan muncul di sini.
           </p>
         </div>
       ) : (
