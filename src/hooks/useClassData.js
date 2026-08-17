@@ -49,6 +49,8 @@ export function usePublicQuestions(workspaceId, topic) {
     queryKey: ['public-questions', workspaceId, topic],
     queryFn: () => api.getPublicQuestions(workspaceId, topic),
     enabled: Boolean(workspaceId),
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000,
   })
 }
 

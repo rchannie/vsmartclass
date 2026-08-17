@@ -6,6 +6,7 @@ import { useAuth } from '../../stores/auth'
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace'
 import { usePublicQuestions, useSessions } from '../../hooks/useClassData'
 import { useMyBloomProfiles } from '../../hooks/useBloomProfile'
+import { useRealtimeBloom } from '../../hooks/useRealtime'
 import * as api from '../../lib/api'
 import { BLOOM, codeOf } from '../../lib/bloom'
 import BloomBadge from '../../components/bloom/BloomBadge'
@@ -26,6 +27,7 @@ const STATUS = {
 export default function StudentTasks() {
   const { user } = useAuth()
   const { workspaces, active, setActive } = useActiveWorkspace(user?.id)
+  useRealtimeBloom(active?.id)
   const { data: questions = [] } = usePublicQuestions(active?.id)
   const { data: myProfiles = [] } = useMyBloomProfiles(user?.id, active?.id)
   const { data: sessions = [] } = useSessions(active?.id, user?.id)

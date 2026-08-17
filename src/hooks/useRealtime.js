@@ -14,6 +14,8 @@ export function useRealtimeBloom(workspaceId) {
       qc.invalidateQueries({ queryKey: ['bloom-profiles'] })
       qc.invalidateQueries({ queryKey: ['class-stats'] })
       qc.invalidateQueries({ queryKey: ['sessions'] })
+      qc.invalidateQueries({ queryKey: ['questions'] })
+      qc.invalidateQueries({ queryKey: ['public-questions'] })
     }
 
     if (isSupabaseConfigured) {
@@ -29,6 +31,11 @@ export function useRealtimeBloom(workspaceId) {
           { event: '*', schema: 'public', table: 'sessions', filter: `workspace_id=eq.${workspaceId}` },
           invalidate,
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'questions', filter: `workspace_id=eq.${workspaceId}` },
+          invalidate,
+        )
         .subscribe()
       return () => supabase.removeChannel(channel)
     }
@@ -36,7 +43,15 @@ export function useRealtimeBloom(workspaceId) {
     const handler = (e) => {
       if (!e.detail || e.detail.workspaceId === workspaceId) invalidate()
     }
+    const storageHandler = () => invalidate()
+
     window.addEventListener('vsc:bloom-updated', handler)
-    return () => window.removeEventListener('vsc:bloom-updated', handler)
+    window.addEventListener('vsc:questions-updated', handler)
+    window.addEventListener('storage', storageHandler)
+    return () => {
+      window.removeEventListener('vsc:bloom-updated', handler)
+      window.removeEventListener('vsc:questions-updated', handler)
+      window.removeEventListener('storage', storageHandler)
+    }
   }, [workspaceId, qc])
 }

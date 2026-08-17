@@ -309,15 +309,23 @@ export async function getQuestion(id) {
   return loadDB().questions.find((q) => q.id === id) || null
 }
 
+function notifyQuestionsUpdated(workspaceId) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('vsc:questions-updated', { detail: { workspaceId } }))
+  }
+}
+
 export async function saveQuestions(questions) {
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.from('questions').insert(questions).select()
     if (error) throw error
+    if (questions[0]?.workspace_id) notifyQuestionsUpdated(questions[0].workspace_id)
     return data
   }
   const db = loadDB()
   db.questions.push(...questions)
   saveDB(db)
+  if (questions[0]?.workspace_id) notifyQuestionsUpdated(questions[0].workspace_id)
   return questions
 }
 
@@ -325,6 +333,7 @@ export async function updateQuestion(id, patch) {
   if (isSupabaseConfigured) {
     const { data, error } = await supabase.from('questions').update(patch).eq('id', id).select().single()
     if (error) throw error
+    if (data?.workspace_id) notifyQuestionsUpdated(data.workspace_id)
     return data
   }
   const db = loadDB()
@@ -332,20 +341,24 @@ export async function updateQuestion(id, patch) {
   if (i >= 0) {
     db.questions[i] = { ...db.questions[i], ...patch }
     saveDB(db)
+    notifyQuestionsUpdated(db.questions[i].workspace_id)
     return db.questions[i]
   }
   return null
 }
 
 export async function deleteQuestion(id) {
+  const dbQuestion = !isSupabaseConfigured ? loadDB().questions.find((q) => q.id === id) : null
   if (isSupabaseConfigured) {
     const { error } = await supabase.from('questions').delete().eq('id', id)
     if (error) throw error
+    notifyQuestionsUpdated()
     return
   }
   const db = loadDB()
   db.questions = db.questions.filter((q) => q.id !== id)
   saveDB(db)
+  if (dbQuestion?.workspace_id) notifyQuestionsUpdated(dbQuestion.workspace_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +368,7 @@ export async function deleteQuestion(id) {
 export async function generateQuestions(params) {
   if (isSupabaseConfigured) {
     const data = await invokeEdge('generate-questions', params)
+    if (params.workspaceId) notifyQuestionsUpdated(params.workspaceId)
     return data.questions  // already persisted by Edge Function
   }
   // Simulasi latensi AI agar shimmer terlihat (UX rule #5)
@@ -363,6 +377,7 @@ export async function generateQuestions(params) {
   const db = loadDB()
   db.questions.push(...questions)
   saveDB(db)
+  if (params.workspaceId) notifyQuestionsUpdated(params.workspaceId)
   return questions
 }
 
