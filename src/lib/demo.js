@@ -270,7 +270,7 @@ function levelWindow(maxCode) {
 }
 
 export function demoGenerateQuestions({ subject, topic, type, count, maxBloom, workspaceId, createdBy }) {
-  const n = Math.min(15, Math.max(1, count || 1))
+  const n = Math.min(15, Math.max(1, Math.floor(Number(count) || 1)))
   return Array.from({ length: n }, (_, i) => {
     if (type === 'essay') {
       return {

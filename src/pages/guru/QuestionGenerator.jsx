@@ -54,16 +54,41 @@ export default function QuestionGenerator() {
       await Promise.all(results.filter((q) => !q.published).map((q) => api.deleteQuestion(q.id)))
       const questions = await api.generateQuestions({
         subject, topic: form.topic, grade: form.grade, type: form.type,
-        count: form.count, maxBloom: form.maxBloom,
+        count: Math.max(1, Math.floor(Number(form.count) || 1)), maxBloom: form.maxBloom,
         workspaceId: active.id, createdBy: user.id,
       })
       setResults(questions)
       setPhase('results')
       qc.invalidateQueries({ queryKey: ['questions'] })
+      qc.invalidateQueries({ queryKey: ['public-questions'] })
       qc.invalidateQueries({ queryKey: ['class-stats'] })
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan. Coba lagi.')
       setPhase('idle')
+    }
+  }
+
+  const [publishingAll, setPublishingAll] = useState(false)
+  const publishAll = async () => {
+    const unpublished = results.filter((q) => !q.published)
+    if (unpublished.length === 0) return
+    setPublishingAll(true)
+    try {
+      const updatedList = await Promise.all(
+        results.map(async (q) => {
+          if (q.published) return q
+          const updated = await api.updateQuestion(q.id, { published: true })
+          return updated || { ...q, published: true }
+        })
+      )
+      setResults(updatedList)
+      qc.invalidateQueries({ queryKey: ['questions'] })
+      qc.invalidateQueries({ queryKey: ['public-questions'] })
+      qc.invalidateQueries({ queryKey: ['class-stats'] })
+    } catch (err) {
+      setError(err.message || 'Gagal mempublikasikan beberapa soal.')
+    } finally {
+      setPublishingAll(false)
     }
   }
 
@@ -218,11 +243,23 @@ export default function QuestionGenerator() {
 
           {phase === 'results' && (
             <>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-extrabold">{results.length} soal dihasilkan</p>
-                <button type="button" onClick={generate} className="btn-ghost !px-3 !py-1.5 text-xs">
-                  <RefreshCcw size={13} /> Regenerate
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-extrabold">{results.length} soal draf dihasilkan</p>
+                <div className="flex items-center gap-2">
+                  {results.some((q) => !q.published) && (
+                    <button
+                      type="button"
+                      disabled={publishingAll}
+                      onClick={publishAll}
+                      className="btn-primary !px-3 !py-1.5 text-xs font-bold"
+                    >
+                      <Send size={13} /> {publishingAll ? 'Mempublikasikan…' : 'Publikasikan Semua ke Kelas'}
+                    </button>
+                  )}
+                  <button type="button" onClick={generate} className="btn-ghost !px-3 !py-1.5 text-xs">
+                    <RefreshCcw size={13} /> Regenerate
+                  </button>
+                </div>
               </div>
               {results.map((q, i) => (
                 <GeneratedQuestion
@@ -254,6 +291,8 @@ function GeneratedQuestion({ question, index, onChange }) {
     const updated = await api.updateQuestion(q.id, { published: true })
     onChange(updated || { ...q, published: true })
     qc.invalidateQueries({ queryKey: ['questions'] })
+    qc.invalidateQueries({ queryKey: ['public-questions'] })
+    qc.invalidateQueries({ queryKey: ['class-stats'] })
     setBusy(false)
   }
 

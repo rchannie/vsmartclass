@@ -40,6 +40,8 @@ export default function QuestionDetail() {
   const setPublished = async (published) => {
     await api.updateQuestion(q.id, { published })
     qc.invalidateQueries({ queryKey: ['questions'] })
+    qc.invalidateQueries({ queryKey: ['public-questions'] })
+    qc.invalidateQueries({ queryKey: ['class-stats'] })
     refetch()
   }
 
@@ -47,6 +49,8 @@ export default function QuestionDetail() {
     if (!confirm('Hapus soal ini dari bank soal?')) return
     await api.deleteQuestion(q.id)
     qc.invalidateQueries({ queryKey: ['questions'] })
+    qc.invalidateQueries({ queryKey: ['public-questions'] })
+    qc.invalidateQueries({ queryKey: ['class-stats'] })
     navigate(-1)
   }
 
@@ -55,6 +59,8 @@ export default function QuestionDetail() {
     if (q.type === 'mcq') updates.options = draftOptions
     if (q.type === 'essay') updates.rubric = draftRubric
     await api.updateQuestion(q.id, updates)
+    qc.invalidateQueries({ queryKey: ['questions'] })
+    qc.invalidateQueries({ queryKey: ['public-questions'] })
     setEditing(false)
     refetch()
   }
