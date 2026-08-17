@@ -42,9 +42,10 @@ Deno.serve(async (req) => {
     }
     // Selaras dengan slider di QuestionGenerator.jsx (maks 15) — mencegah
     // permintaan tidak wajar menghabiskan kuota Gemini dalam satu panggilan.
-    const safeCount = Math.min(15, Math.max(1, Number(count) || 1))
+    const safeCount = Math.min(15, Math.max(1, Math.floor(Number(count) || 1)))
 
-    const items = await generateQuestionsViaGemini({ subject, topic, grade, type, count: safeCount, maxBloom })
+    const rawItems = await generateQuestionsViaGemini({ subject, topic, grade, type, count: safeCount, maxBloom })
+    const items = rawItems.slice(0, safeCount)
     const rows = buildQuestionRows(items, { workspaceId, createdBy, subject, topic, type })
 
     const { data: saved, error } = await supabase.from('questions').insert(rows).select()

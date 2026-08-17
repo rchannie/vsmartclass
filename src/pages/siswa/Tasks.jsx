@@ -46,19 +46,38 @@ export default function StudentTasks() {
 
   // Gabungkan topik dari soal yang diterbitkan guru + riwayat profil Bloom siswa di workspace aktif
   const tasks = useMemo(() => {
-    const topicSet = new Set()
-    questions.forEach((q) => q.topic && topicSet.add(q.topic))
-    myProfiles.forEach((p) => p.topic && topicSet.add(p.topic))
+    const map = new Map()
+    const addTopic = (t) => {
+      if (!t) return
+      const key = t.trim().toLowerCase()
+      if (!map.has(key)) map.set(key, t.trim())
+    }
 
-    return [...topicSet].map((topic) => {
-      const qs = questions.filter((q) => q.topic === topic)
-      const profile = myProfiles.find((p) => p.topic === topic) ?? null
+    questions.forEach((q) => addTopic(q.topic))
+    myProfiles.forEach((p) => addTopic(p.topic))
+
+    const list = [...map.entries()].map(([key, originalTopic]) => {
+      const qs = questions.filter((q) => q.topic && q.topic.trim().toLowerCase() === key)
+      const profile = myProfiles.find((p) => p.topic && p.topic.trim().toLowerCase() === key) ?? null
       return {
-        topic,
+        topic: originalTopic,
         questionCount: qs.length,
         profile,
-        isLastActive: topic === lastActiveTopic,
+        isLastActive: originalTopic.toLowerCase() === (lastActiveTopic || '').toLowerCase(),
       }
+    })
+
+    // Sortir: Sedang dikerjakan / draf baru di atas, selesai di bawah
+    return list.sort((a, b) => {
+      if (a.isLastActive) return -1
+      if (b.isLastActive) return 1
+      const stA = statusOf(a.profile)
+      const stB = statusOf(b.profile)
+      if (stA === 'progres' && stB !== 'progres') return -1
+      if (stB === 'progres' && stA !== 'progres') return 1
+      if (stA === 'belum' && stB === 'selesai') return -1
+      if (stB === 'belum' && stA === 'selesai') return 1
+      return 0
     })
   }, [questions, myProfiles, lastActiveTopic])
 

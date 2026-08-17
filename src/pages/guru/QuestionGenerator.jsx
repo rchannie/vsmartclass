@@ -261,6 +261,20 @@ export default function QuestionGenerator() {
                   </button>
                 </div>
               </div>
+
+              {results.some((q) => !q.published) ? (
+                <div className="rounded-md border border-accent/30 bg-accent/10 p-3.5 text-xs">
+                  <p className="font-extrabold text-accent">Soal masih berupa Draf (Belum Terbit di Kelas)</p>
+                  <p className="mt-1 text-muted leading-relaxed">
+                    Klik <strong className="text-accent">Publikasikan Semua ke Kelas</strong> di kanan atas atau tombol <strong className="text-accent">Publikasikan ke kelas</strong> di tiap soal agar tugas ini terbit &amp; muncul di halaman siswa.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-c3/30 bg-c3/10 p-3.5 text-xs text-[color:var(--c3)] font-bold">
+                  ✓ Semua soal telah dipublikasikan ke kelas {active?.name}! Tugas kini aktif dan tersedia bagi siswa.
+                </div>
+              )}
+
               {results.map((q, i) => (
                 <GeneratedQuestion
                   key={q.id}
